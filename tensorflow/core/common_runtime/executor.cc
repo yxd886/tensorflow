@@ -1204,6 +1204,7 @@ class ExecutorState {
     }
   };
 
+
   // A drop-in replacement for std::deque<TaggedNode>.  We typically don't
   // have that many nodes in the ready queue, so we just use a vector and
   // don't free up memory from the queue as we consume nodes.
@@ -1340,14 +1341,22 @@ class ExecutorState {
 
   // "node" just finishes. Takes ownership of "stats". Returns true if
   // execution has completed.
-  bool NodeDone(const Status& s, const Node* node, const TaggedNodeSeq& ready,
+  bool NodeDone(const Status& s, const Node* node, TaggedNodeSeq& ready,
                 NodeExecStatsInterface* stats,
                 TaggedNodeReadyQueue* inline_ready);
 
   // Schedule all the expensive nodes in 'ready', and put all the inexpensive
   // nodes in 'ready' into 'inline_ready'.
-  void ScheduleReady(const TaggedNodeSeq& ready,
+  void ScheduleReady( TaggedNodeSeq& ready,
                      TaggedNodeReadyQueue* inline_ready);
+
+  static bool less_second(struct TaggedNode & m1,struct TaggedNode & m2) {
+  	int priority1=10000;
+  	int priority2=10000;
+  	GetNodeAttr(m1.node->attrs(),"_priority",&priority1);
+  	GetNodeAttr(m2.node->attrs(),"_priority",&priority2);
+  	return (priority1 < priority2);
+  }
 
   // For debugging/logging only.
   inline void MaybeMarkCompleted(FrameState* frame, int64 iter, int64 id);
@@ -2200,7 +2209,7 @@ void ExecutorState::PropagateOutputs(const TaggedNode& tagged_node,
 }
 
 bool ExecutorState::NodeDone(const Status& s, const Node* node,
-                             const TaggedNodeSeq& ready,
+                             TaggedNodeSeq& ready,
                              NodeExecStatsInterface* stats,
                              TaggedNodeReadyQueue* inline_ready) {
   nodestats::SetAllEnd(stats);
@@ -2266,10 +2275,12 @@ bool ExecutorState::NodeDone(const Status& s, const Node* node,
   return completed;
 }
 
-void ExecutorState::ScheduleReady(const TaggedNodeSeq& ready,
+
+void ExecutorState::ScheduleReady( TaggedNodeSeq& ready,
                                   TaggedNodeReadyQueue* inline_ready) {
   if (ready.empty()) return;
 
+  std::sort(ready.begin(), ready.end(), less_second);
   int64 scheduled_nsec = 0;
   if (stats_collector_) {
     scheduled_nsec = nodestats::NowInNsec();
