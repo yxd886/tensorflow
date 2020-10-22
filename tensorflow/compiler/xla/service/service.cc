@@ -20,6 +20,10 @@ limitations under the License.
 #include <utility>
 #include <vector>
 
+
+#include <fstream>
+#include <iostream>
+
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -59,6 +63,7 @@ limitations under the License.
 #include "tensorflow/core/util/ptr_util.h"
 #include "tensorflow/stream_executor/device_memory_allocator.h"
 
+using namespace std;
 namespace xla {
 namespace {
 
@@ -820,6 +825,13 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
   TF_ASSIGN_OR_RETURN(
       module, backend->compiler()->RunHloPasses(std::move(module), executor,
                                                 device_allocator));
+
+  cout << "Writing to the file" << endl;
+  ofstream outfile;
+  outfile.open("hlo_modules/"+module->name()+".log");
+  outfile << module->ToString() << endl;
+  outfile.close();
+
 
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,
                       backend->compiler()->RunBackend(
