@@ -54,7 +54,7 @@ DebugOptions DefaultDebugOptionsIgnoringFlags() {
   // increases memory usage and we lack strong motivating benchmarks for tuning
   // the heuristics needed to decide when to run on multiple streams.  See
   // b/77879207.
-  opts.set_xla_gpu_disable_multi_streaming(true);
+  opts.set_xla_gpu_disable_multi_streaming(false);
 
   // Disable forms of fast math that have caused users problems in the past.
   opts.set_xla_cpu_enable_fast_math(true);
