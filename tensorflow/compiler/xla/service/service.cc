@@ -826,10 +826,19 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
       module, backend->compiler()->RunHloPasses(std::move(module), executor,
                                                 device_allocator));
 
+
+  HloPrintOptions opts = HloPrintOptions()
+		  .set_print_metadata(false)
+		  .set_print_backend_config(false)
+		  .set_print_operand_shape(false)
+		  .set_print_program_shape(false)
+		  .set_indent_amount(2)
+		  .set_print_extra_attributes(false);
+
   cout << "Writing to the file" << endl;
   ofstream outfile;
   outfile.open("hlo_modules/"+module->name()+".log");
-  outfile << module->ToString() << endl;
+  outfile << module->ToString(opts) << endl;
   outfile.close();
 
 
