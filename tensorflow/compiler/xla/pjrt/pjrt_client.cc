@@ -68,6 +68,7 @@ limitations under the License.
 #include <memory>
 #include <string>
 #include <vector>
+#include <iostream>
 
 #include "absl/base/casts.h"
 #include "absl/container/flat_hash_set.h"
@@ -111,6 +112,7 @@ limitations under the License.
 #include "tensorflow/stream_executor/lib/statusor.h"
 #include "tensorflow/stream_executor/stream.h"
 
+using namespace std;
 namespace xla {
 
 StatusOr<LocalDeviceState*> PjRtDevice::GetLocalDeviceState() const {
@@ -1537,6 +1539,9 @@ PjRtExecutable::MakeExecutionInputsAndWaitForEvents(
   // Lift tuple_handle outside the conditional so that the event it returns is
   // not destroyed until after the loop below that waits on events.
   absl::optional<TupleHandle> tuple_handle;
+  if (parameter_is_tupled_arguments_){
+	  cout<<"parameter_is_tupled_arguments in MakeExecutionInputsAndWaitForEvents"<<endl;
+  }
   if (parameter_is_tupled_arguments_ && !options.arguments_are_tupled) {
     TF_ASSIGN_OR_RETURN(tuple_handle,
                         MakeTupleHelper(client_, device_state, argument_handles,
@@ -2188,6 +2193,10 @@ StatusOr<std::pair<std::vector<Shape>, Shape>> GetShardedProgramShapes(
       client->client()->Compile(computation, argument_layout_pointers,
                                 build_options));
 
+  if (options.parameter_is_tupled_arguments){
+
+	  cout<<"options.parameter_is_tupled_arguments in compile"<<endl;
+  }
   auto executable = absl::make_unique<PjRtExecutable>(
       std::move(local_executables), options.parameter_is_tupled_arguments,
       std::move(device_assignment), std::move(local_logical_device_ids),
