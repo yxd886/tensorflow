@@ -23,6 +23,10 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/hlo_reachability.h"
 #include "tensorflow/core/platform/random.h"
 
+
+#include <fstream>
+#include <iostream>
+using namespace std;
 namespace xla {
 namespace gpu {
 
@@ -71,6 +75,15 @@ int ComputeStreamToAssign(
       hlo.opcode() == HloOpcode::kConstant) {
     // kParameter and kConstant do not need a thunk.
     return kInvalidStreamNum;
+  }
+
+  if (hlo.opcode() == HloOpcode::kAllReduce) {
+	  // xiaodong separate computation and communication.
+	  cout<<"assign "<<hlo.name()<<"to cuda stream 1"<<endl;
+	  return 1;
+  }else{
+	  //cout<<"assign "<<hlo.name()<<"to cuda stream 0"<<endl;
+	  return 0;
   }
 
   const auto& debug_options = hlo.GetModule()->config().debug_options();
