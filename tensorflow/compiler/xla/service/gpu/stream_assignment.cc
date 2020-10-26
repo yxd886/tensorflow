@@ -150,6 +150,13 @@ std::unique_ptr<StreamAssignment> AssignStreams(const HloModule& module) {
   // TODO(b/111791052): If we remove such a common variable, we will need to
   // clean up the code here.
   int stream_num_for_rng = kInvalidStreamNum;
+
+  if(IsStreamNumValid(1)){
+	  cout<<"cuda stream 1 vaild"<<endl;
+  }else{
+	  cout<<"cuda stream 1 invaild"<<endl;
+
+  }
   for (const auto* hlo : computation.MakeInstructionPostOrder()) {
     // If we ever enable fusion of RNG instructions, we will need to extend this
     // code to look inside a fused instruction.
