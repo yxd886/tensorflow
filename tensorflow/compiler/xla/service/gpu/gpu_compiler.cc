@@ -312,13 +312,13 @@ Status GpuCompiler::OptimizeHloModule(
     TF_RETURN_IF_ERROR(horizontal_fusion.Run(hlo_module).status());
   }
 
-  {
-    HloPassPipeline pipeline("all_reduce_combiner");
-    pipeline.AddPass<AllReduceCombiner>(
-        /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
-        /*combine_threshold_count=*/256);
-    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
-  }
+  //{
+  //  HloPassPipeline pipeline("all_reduce_combiner");
+  //  pipeline.AddPass<AllReduceCombiner>(
+  //      /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
+  //     /*combine_threshold_count=*/256);
+  //  TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+  //}
   {
     // Now we allow to replace any transposes outside of fusions with bitcasts.
     HloPassPipeline pipeline("final_algebraic_simplifier");
