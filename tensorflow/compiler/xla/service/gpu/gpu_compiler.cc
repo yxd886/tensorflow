@@ -20,6 +20,7 @@ limitations under the License.
 #include <atomic>
 #include <functional>
 #include <utility>
+#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
@@ -120,6 +121,7 @@ limitations under the License.
 #include "tensorflow/core/profiler/lib/traceme.h"
 #include "tensorflow/core/util/env_var.h"
 
+using namespace std;
 namespace xla {
 namespace gpu {
 
@@ -283,8 +285,9 @@ Status GpuCompiler::OptimizeHloModule(
   // Run target-specific HLO optimization passes after layout assignment.
   TF_RETURN_IF_ERROR(OptimizeHloPostLayoutAssignment(hlo_module, stream_exec,
                                                      device_allocator));
-
+#ifdef OP_FUSION
   {
+	cout<<"In op fusion pass"<<endl;
     HloPassFix<HloPassPipeline> fusion("fusion");
     // We try to split variadic ops with many parameters into several such ops
     // to avoid exceeding the parameter space.
@@ -311,14 +314,18 @@ Status GpuCompiler::OptimizeHloModule(
     horizontal_fusion.AddPass<HloDCE>();
     TF_RETURN_IF_ERROR(horizontal_fusion.Run(hlo_module).status());
   }
+#endif
 
-  //{
-  //  HloPassPipeline pipeline("all_reduce_combiner");
-  //  pipeline.AddPass<AllReduceCombiner>(
-  //      /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
-  //     /*combine_threshold_count=*/256);
-  //  TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
-  //}
+#ifdef TENSOR_FUSION
+  {
+	cout<<"In tensor fusion pass"<<endl;
+    HloPassPipeline pipeline("all_reduce_combiner");
+    pipeline.AddPass<AllReduceCombiner>(
+        /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
+       /*combine_threshold_count=*/256);
+    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+  }
+#endif
   {
     // Now we allow to replace any transposes outside of fusions with bitcasts.
     HloPassPipeline pipeline("final_algebraic_simplifier");
@@ -330,6 +337,7 @@ Status GpuCompiler::OptimizeHloModule(
   }
   return Status::OK();
 }
+
 
 // Modifies the given HLO module so that it will be accepted by IrEmitter.
 // Unlike optimization passes, the passes are necessary for correctness.
