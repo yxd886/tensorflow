@@ -79,9 +79,17 @@ int ComputeStreamToAssign(
 
   if (hlo.opcode() == HloOpcode::kAllReduce) {
 	  // xiaodong separate computation and communication.
-	  cout<<"assign "<<hlo.name()<<"to cuda stream 1"<<endl;
 	  return 1;
   }else{
+	    for (const auto* operand : hlo.operands()) {
+
+	      if (stream_assignment.HasStreamAssigned(*operand)) {
+	        int stream_num = stream_assignment.StreamNumberForHlo(*operand);
+	        if (stream_num==1){
+	        	return stream_num;
+	        }
+	      }
+	    }
 	  //cout<<"assign "<<hlo.name()<<"to cuda stream 0"<<endl;
 	  return 0;
   }
@@ -175,6 +183,11 @@ std::unique_ptr<StreamAssignment> AssignStreams(const HloModule& module) {
     if (IsCublasGemm(*hlo) || IsMatrixMultiplication(*hlo)) {
       seen_gemms.push_back(hlo);
     }
+    if(stream_num==1){
+        cout<<"assign "<<hlo->name()<<"to cuda stream 1"<<endl;
+
+    }
+
   }
   return stream_assignment;
 }
