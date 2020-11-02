@@ -835,11 +835,11 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		  .set_indent_amount(2)
 		  .set_print_extra_attributes(false);
 
-  cout << "Writing to the file" << endl;
-  ofstream outfile;
-  outfile.open("hlo_modules/"+module->name()+".log");
-  outfile << module->ToString(opts) << endl;
-  outfile.close();
+  //cout << "Writing to the file" << endl;
+  //ofstream outfile;
+  //outfile.open("hlo_modules/"+module->name()+".log");
+  //outfile << module->ToString(opts) << endl;
+  //outfile.close();
 
 
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,
