@@ -178,10 +178,10 @@ std::unique_ptr<StreamAssignment> AssignStreams(const HloModule& module) {
     if (IsCublasGemm(*hlo) || IsMatrixMultiplication(*hlo)) {
       seen_gemms.push_back(hlo);
     }
-    if(stream_num==1){
-        cout<<"assign "<<hlo->name()<<"to cuda stream 1"<<endl;
+    //if(stream_num==1){
+    //    cout<<"assign "<<hlo->name()<<"to cuda stream 1"<<endl;
 
-    }
+    //}
 
   }
   return stream_assignment;
