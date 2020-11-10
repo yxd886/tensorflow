@@ -841,10 +841,11 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
   //outfile << module->ToString(opts) << endl;
   //outfile.close();
 
-
+  cout << "Before RunBackend" << endl;
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,
                       backend->compiler()->RunBackend(
                           std::move(module), executor, device_allocator));
+  cout << "After RunBackend" << endl;
 
   const auto& debug_opts = module_config->debug_options();
   if (DumpingEnabledForHloModule(module_proto.name(), debug_opts) &&
