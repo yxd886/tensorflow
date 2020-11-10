@@ -62,7 +62,7 @@ Status CombineAllReduces(absl::Span<HloInstruction* const> to_combine) {
   std::vector<Shape> operand_shapes;
   VLOG(1) << "Combining set";
   for (HloInstruction* hlo : to_combine) {
-    VLOG(1) << "Set element: " << hlo->ToString();
+    //VLOG(1) << "Set element: " << hlo->ToString();
     TF_RET_CHECK(hlo->opcode() == HloOpcode::kAllReduce);
     TF_RET_CHECK(hlo->operands().size() == 1);
     TF_RET_CHECK(hlo->to_apply() == reduction ||
