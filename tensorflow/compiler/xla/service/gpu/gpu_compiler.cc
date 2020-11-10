@@ -140,6 +140,7 @@ Status GpuCompiler::OptimizeHloModule(
     HloModule* hlo_module, se::StreamExecutor* stream_exec,
     se::DeviceMemoryAllocator* device_allocator) {
   {
+	cout<<"In OptimizeHloModule start"<<endl;
     HloPassPipeline pipeline("optimization");
     pipeline.AddInvariantChecker<HloVerifier>(/*layout_sensitive=*/false,
                                               /*allow_mixed_precision=*/false);
@@ -315,6 +316,8 @@ Status GpuCompiler::OptimizeHloModule(
                                       /*only_fusion_computations=*/true);
     horizontal_fusion.AddPass<HloDCE>();
     TF_RETURN_IF_ERROR(horizontal_fusion.Run(hlo_module).status());
+	cout<<"out op fusion pass"<<endl;
+
   }
 #endif
 
@@ -326,6 +329,8 @@ Status GpuCompiler::OptimizeHloModule(
         /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
        /*combine_threshold_count=*/256);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+	cout<<"out tensor fusion pass"<<endl;
+
   }
 #endif
   {
