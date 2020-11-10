@@ -22,7 +22,7 @@ limitations under the License.
 #include <atomic>
 #include <functional>
 #include <utility>
-#include <iostream>
+//#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
@@ -140,7 +140,7 @@ Status GpuCompiler::OptimizeHloModule(
     HloModule* hlo_module, se::StreamExecutor* stream_exec,
     se::DeviceMemoryAllocator* device_allocator) {
   {
-	cout<<"In OptimizeHloModule start"<<endl;
+	//cout<<"In OptimizeHloModule start"<<endl;
     HloPassPipeline pipeline("optimization");
     pipeline.AddInvariantChecker<HloVerifier>(/*layout_sensitive=*/false,
                                               /*allow_mixed_precision=*/false);
@@ -290,7 +290,7 @@ Status GpuCompiler::OptimizeHloModule(
                                                      device_allocator));
 #ifdef OP_FUSION
   {
-	cout<<"In op fusion pass"<<endl;
+	//cout<<"In op fusion pass"<<endl;
     HloPassFix<HloPassPipeline> fusion("fusion");
     // We try to split variadic ops with many parameters into several such ops
     // to avoid exceeding the parameter space.
@@ -316,33 +316,33 @@ Status GpuCompiler::OptimizeHloModule(
                                       /*only_fusion_computations=*/true);
     horizontal_fusion.AddPass<HloDCE>();
     TF_RETURN_IF_ERROR(horizontal_fusion.Run(hlo_module).status());
-	cout<<"out op fusion pass"<<endl;
+	//cout<<"out op fusion pass"<<endl;
 
   }
 #endif
 
 #ifdef TENSOR_FUSION
   {
-	cout<<"In tensor fusion pass"<<endl;
+	//cout<<"In tensor fusion pass"<<endl;
     HloPassPipeline pipeline("all_reduce_combiner");
     pipeline.AddPass<AllReduceCombiner>(
         /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
        /*combine_threshold_count=*/256);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
-	cout<<"out tensor fusion pass"<<endl;
+	////cout<<"out tensor fusion pass"<<endl;
 
   }
 #endif
   {
     // Now we allow to replace any transposes outside of fusions with bitcasts.
-	cout<<"In final_algebraic_simplifier pass"<<endl;
+	//cout<<"In final_algebraic_simplifier pass"<<endl;
     HloPassPipeline pipeline("final_algebraic_simplifier");
     AlgebraicSimplifierOptions options;
     options.set_is_layout_sensitive(true);
     options.set_enable_conv_operand_swap(false);
     pipeline.AddPass<AlgebraicSimplifier>(options);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
-	cout<<"out final_algebraic_simplifier pass"<<endl;
+	//cout<<"out final_algebraic_simplifier pass"<<endl;
 
   }
   return Status::OK();
@@ -357,7 +357,7 @@ Status GpuCompiler::PrepareHloModuleForIrEmitting(HloModule* hlo_module) {
   // assumed immutable at this point, and should not be reused for output
   // (b/27180329). Therefore, in that case, we set the output to be a copy of
   // the parameter.
-  cout<<"In PrepareHloModuleForIrEmitting pass"<<endl;
+  //cout<<"In PrepareHloModuleForIrEmitting pass"<<endl;
 
   HloPassPipeline pipeline("GPU-ir-emit-prepare");
   /* TODO(b/117531509): Use LayoutAssignment::InstructionCanChangeLayout after
@@ -486,17 +486,17 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
     se::DeviceMemoryAllocator* device_allocator) {
   // We dump the post-optimization HLO in RunBackend so no need to dump it here.
   XLA_SCOPED_LOGGING_TIMER("GpuCompiler::RunHloPasses");
-  cout<<"in TraceMe activity pass"<<endl;
+  //cout<<"in TraceMe activity pass"<<endl;
   tensorflow::profiler::TraceMe activity(
       [&] { return absl::StrCat("HLO Transforms:", module->name()); },
       tensorflow::profiler::TraceMeLevel::kInfo);
-  cout<<"out TraceMe activity pass"<<endl;
+  //cout<<"out TraceMe activity pass"<<endl;
 
   TF_RETURN_IF_ERROR(
       OptimizeHloModule(module.get(), stream_exec, device_allocator));
 
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
-  cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
+  //cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
 
   return std::move(module);
 }

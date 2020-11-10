@@ -22,7 +22,7 @@ limitations under the License.
 
 
 #include <fstream>
-#include <iostream>
+//#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -835,17 +835,17 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		  .set_indent_amount(2)
 		  .set_print_extra_attributes(false);
 
-  //cout << "Writing to the file" << endl;
+  ////cout << "Writing to the file" << endl;
   //ofstream outfile;
   //outfile.open("hlo_modules/"+module->name()+".log");
   //outfile << module->ToString(opts) << endl;
   //outfile.close();
 
-  cout << "Before RunBackend" << endl;
+  ////cout << "Before RunBackend" << endl;
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,
                       backend->compiler()->RunBackend(
                           std::move(module), executor, device_allocator));
-  cout << "After RunBackend" << endl;
+  ////cout << "After RunBackend" << endl;
 
   const auto& debug_opts = module_config->debug_options();
   if (DumpingEnabledForHloModule(module_proto.name(), debug_opts) &&
