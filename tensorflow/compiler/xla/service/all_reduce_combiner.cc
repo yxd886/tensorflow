@@ -50,7 +50,7 @@ Status CombineAllReduces(absl::Span<HloInstruction* const> to_combine) {
   if (to_combine.size() < 2) {
     return Status::OK();
   }
-  VLOG(1) << "Combined " << to_combine.size() << " CRS ops";
+  VLOG(2) << "Combined " << to_combine.size() << " CRS ops";
 
   HloComputation& computation = *to_combine.back()->parent();
   HloComputation* reduction = to_combine[0]->to_apply();
@@ -60,9 +60,9 @@ Status CombineAllReduces(absl::Span<HloInstruction* const> to_combine) {
   // AllReduces.
   std::vector<HloInstruction*> operands;
   std::vector<Shape> operand_shapes;
-  VLOG(1) << "Combining set";
+  VLOG(2) << "Combining set";
   for (HloInstruction* hlo : to_combine) {
-    //VLOG(1) << "Set element: " << hlo->ToString();
+    //VLOG(2) << "Set element: " << hlo->ToString();
     TF_RET_CHECK(hlo->opcode() == HloOpcode::kAllReduce);
     TF_RET_CHECK(hlo->operands().size() == 1);
     TF_RET_CHECK(hlo->to_apply() == reduction ||
@@ -91,7 +91,7 @@ Status CombineAllReduces(absl::Span<HloInstruction* const> to_combine) {
   if (to_combine.front()->has_sharding()) {
     combined->set_sharding(to_combine.front()->sharding());
   }
-  VLOG(1) << "Replacing with : " << combined->ToString();
+  VLOG(2) << "Replacing with : " << combined->ToString();
 
   // Replace all the smaller AllReduces with elements of the tuple output
   // of the single bigger AllReduce.
@@ -190,7 +190,7 @@ StatusOr<InstructionGroups> CreateComputationGroups(
     }
     if (instruction->to_apply()->instruction_count() != 3 ||
         instruction->to_apply()->num_parameters() != 2) {
-      VLOG(1) << "Skipping due to non-trivial reduction function.";
+      VLOG(2) << "Skipping due to non-trivial reduction function.";
       continue;
     }
     opcode_groups[GroupKey(instruction, *domain_map)].push_back(instruction);
@@ -229,7 +229,7 @@ StatusOr<InstructionGroups> CreateComputationGroups(
     }
     if (instruction->to_apply()->instruction_count() != 3 ||
         instruction->to_apply()->num_parameters() != 2) {
-      VLOG(1) << "Skipping due to non-trivial reduction function.";
+      VLOG(2) << "Skipping due to non-trivial reduction function.";
       continue;
     }
 
@@ -265,16 +265,16 @@ AllReduceCombiner::AllReduceCombiner(int64 combine_threshold_in_bytes,
       combine_threshold_count_(combine_threshold_count) {}
 
 StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
-  VLOG(1) << "Running AllReduceCombiner with threshold of "
+  VLOG(2) << "Running AllReduceCombiner with threshold of "
           << combine_threshold_in_bytes_ << " bytes";
 
   if (combine_threshold_in_bytes_ <= 0 || combine_threshold_count_ <= 0) {
-    VLOG(1) << "Skip AllReduceCombiner because the threshold is zero";
+    VLOG(2) << "Skip AllReduceCombiner because the threshold is zero";
     return false;
   }
 
   if (hlo_query::ContainsLayoutConstrainedAllReduce(*module)) {
-    VLOG(1) << "Skip AllReduceCombiner because the module contains all-reduce "
+    VLOG(2) << "Skip AllReduceCombiner because the module contains all-reduce "
                "with constrained layouts";
     return false;
   }
@@ -328,7 +328,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         }
         const auto& instructions = *it->second;
 
-        VLOG(1) << "Considering HLO " << instructions.front()->ToString()
+        VLOG(2) << "Considering HLO " << instructions.front()->ToString()
                 << " with current set size of " << current_size_in_bytes
                 << " and current operand count of " << current_operand_count;
 
@@ -337,7 +337,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         // generate such ops and it should rarely be important to consider the
         // same ops again.
         if (instructions.front()->operands().size() != 1) {
-          VLOG(1) << "Skipping due to "
+          VLOG(2) << "Skipping due to "
                   << instructions.front()->operands().size() << " operands";
           continue;
         }
@@ -347,7 +347,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         size_in_bytes = ShapeUtil::ByteSizeOf(instructions.front()->shape());
 
         if (size_in_bytes > combine_threshold_in_bytes_) {
-          VLOG(1) << "Skipping due to size " << size_in_bytes
+          VLOG(2) << "Skipping due to size " << size_in_bytes
                   << " above threshold";
           // If the instruction is greather than the threshold, then we can
           // never combine it with anything.
@@ -397,7 +397,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
           bool new_set = false;
           for (int64 i = 0; i < instructions.size(); ++i) {
             if (reachability->IsReachable(previous[i], instructions[i])) {
-              VLOG(1) << "Starting new set due to dependency between "
+              VLOG(2) << "Starting new set due to dependency between "
                       << previous[i]->ToString() << " AND "
                       << instructions[i]->ToString();
               new_set = true;
@@ -415,7 +415,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         if (current_size_in_bytes + size_in_bytes >
                 combine_threshold_in_bytes_ ||
             current_operand_count + 1 > combine_threshold_count_) {
-          VLOG(1) << "The instruction cannot be entered into the set due "
+          VLOG(2) << "The instruction cannot be entered into the set due "
                      "to the combined size being too large.";
           // In this case we cannot include the instruction into the current set
           // since then it would grow beyond the threshold. The set of
@@ -423,32 +423,32 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
           // instruction by itself, whichever is smaller, since that maximizes
           // the chance of being able to combine with the next instruction.
           if (size_in_bytes > current_size_in_bytes) {
-            VLOG(1) << "Skipping as the instruction is larger than the set.";
+            VLOG(2) << "Skipping as the instruction is larger than the set.";
             continue;  // keep the current set
           }
-          VLOG(1)
+          VLOG(2)
               << "Resetting the set as the set is larger than the instruction.";
           combine_sets.emplace_back();
           current_size_in_bytes = 0;
           current_operand_count = 0;
         }
 
-        VLOG(1) << "Adding instruction to set.";
+        VLOG(2) << "Adding instruction to set.";
         combine_sets.back().push_back(instructions);
         current_size_in_bytes += size_in_bytes;
         current_operand_count += 1;
         TF_RET_CHECK(current_size_in_bytes <= combine_threshold_in_bytes_);
         TF_RET_CHECK(current_operand_count <= combine_threshold_count_);
       }
-      VLOG(1) << "Done constructing sets. Final set size is "
+      VLOG(2) << "Done constructing sets. Final set size is "
               << current_size_in_bytes << " bytes and " << current_operand_count
               << " operands";
 
       // Combine the collected sets of AllReduce instructions.
-      VLOG(2) << "combine sets size is "<<combine_sets.size();
+      VLOG(1) << "combine sets size is "<<combine_sets.size();
 
       for (const auto& combine_set : combine_sets) {
-        VLOG(2) << "combine set size is "<<combine_sets.size();
+        VLOG(1) << "combine set size is "<<combine_sets.size();
         if (combine_set.size() >= 2) {
           changed = true;
           for (int64 i = 0; i < combine_set.front().size(); ++i) {
