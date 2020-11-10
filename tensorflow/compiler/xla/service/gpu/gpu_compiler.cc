@@ -335,12 +335,15 @@ Status GpuCompiler::OptimizeHloModule(
 #endif
   {
     // Now we allow to replace any transposes outside of fusions with bitcasts.
+	cout<<"In final_algebraic_simplifier pass"<<endl;
     HloPassPipeline pipeline("final_algebraic_simplifier");
     AlgebraicSimplifierOptions options;
     options.set_is_layout_sensitive(true);
     options.set_enable_conv_operand_swap(false);
     pipeline.AddPass<AlgebraicSimplifier>(options);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+	cout<<"out final_algebraic_simplifier pass"<<endl;
+
   }
   return Status::OK();
 }
@@ -354,6 +357,8 @@ Status GpuCompiler::PrepareHloModuleForIrEmitting(HloModule* hlo_module) {
   // assumed immutable at this point, and should not be reused for output
   // (b/27180329). Therefore, in that case, we set the output to be a copy of
   // the parameter.
+  cout<<"In PrepareHloModuleForIrEmitting pass"<<endl;
+
   HloPassPipeline pipeline("GPU-ir-emit-prepare");
   /* TODO(b/117531509): Use LayoutAssignment::InstructionCanChangeLayout after
    * fixing the ticket. */
@@ -481,13 +486,17 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
     se::DeviceMemoryAllocator* device_allocator) {
   // We dump the post-optimization HLO in RunBackend so no need to dump it here.
   XLA_SCOPED_LOGGING_TIMER("GpuCompiler::RunHloPasses");
+  cout<<"in TraceMe activity pass"<<endl;
   tensorflow::profiler::TraceMe activity(
       [&] { return absl::StrCat("HLO Transforms:", module->name()); },
       tensorflow::profiler::TraceMeLevel::kInfo);
+  cout<<"out TraceMe activity pass"<<endl;
+
   TF_RETURN_IF_ERROR(
       OptimizeHloModule(module.get(), stream_exec, device_allocator));
 
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
+  cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
 
   return std::move(module);
 }
