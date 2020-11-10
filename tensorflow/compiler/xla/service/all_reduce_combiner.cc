@@ -445,10 +445,10 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
               << " operands";
 
       // Combine the collected sets of AllReduce instructions.
-      VLOG(1) << "combine sets size is "<<combine_sets.size();
+      VLOG(2) << "combine sets size is "<<combine_sets.size();
 
       for (const auto& combine_set : combine_sets) {
-        VLOG(1) << "combine set size is "<<combine_sets.size();
+        VLOG(2) << "combine set size is "<<combine_sets.size();
         if (combine_set.size() >= 2) {
           changed = true;
           for (int64 i = 0; i < combine_set.front().size(); ++i) {
