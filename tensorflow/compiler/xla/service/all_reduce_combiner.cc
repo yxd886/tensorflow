@@ -346,13 +346,13 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         TF_RET_CHECK(instructions.front()->shape().IsArray());
         size_in_bytes = ShapeUtil::ByteSizeOf(instructions.front()->shape());
 
-        if (size_in_bytes > combine_threshold_in_bytes_) {
-          VLOG(2) << "Skipping due to size " << size_in_bytes
-                  << " above threshold";
+        //if (size_in_bytes > combine_threshold_in_bytes_) {
+        //  VLOG(2) << "Skipping due to size " << size_in_bytes
+        //          << " above threshold";
           // If the instruction is greather than the threshold, then we can
           // never combine it with anything.
-          continue;
-        }
+       //   continue;
+       // }
 
         // If the current set is dependent on the instruction, then create a new
         // one to avoid the dependency. We move on from the current set instead
@@ -422,12 +422,15 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
           // instructions to carry forward will either be the current set or the
           // instruction by itself, whichever is smaller, since that maximizes
           // the chance of being able to combine with the next instruction.
-          if (size_in_bytes > current_size_in_bytes) {
-            VLOG(2) << "Skipping as the instruction is larger than the set.";
-            continue;  // keep the current set
-          }
+          //if (size_in_bytes > current_size_in_bytes) {
+          //  VLOG(2) << "Skipping as the instruction is larger than the set.";
+          //  continue;  // keep the current set
+          //}
           VLOG(2)
               << "Resetting the set as the set is larger than the instruction.";
+          VLOG(1) << "Done constructing 1 set. set size is "
+                  << current_size_in_bytes << " bytes and " << current_operand_count
+                  << " operands";
           combine_sets.emplace_back();
           current_size_in_bytes = 0;
           current_operand_count = 0;
@@ -437,7 +440,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         combine_sets.back().push_back(instructions);
         current_size_in_bytes += size_in_bytes;
         current_operand_count += 1;
-        TF_RET_CHECK(current_size_in_bytes <= combine_threshold_in_bytes_);
+        TF_RET_CHECK(current_size_in_bytes-size_in_bytes <= combine_threshold_in_bytes_);
         TF_RET_CHECK(current_operand_count <= combine_threshold_count_);
       }
       VLOG(2) << "Done constructing sets. Final set size is "
