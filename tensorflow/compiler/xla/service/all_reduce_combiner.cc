@@ -443,7 +443,7 @@ StatusOr<bool> AllReduceCombiner::Run(HloModule* module) {
         TF_RET_CHECK(current_size_in_bytes-size_in_bytes <= combine_threshold_in_bytes_);
         TF_RET_CHECK(current_operand_count <= combine_threshold_count_);
       }
-      VLOG(2) << "Done constructing sets. Final set size is "
+      VLOG(1) << "Done constructing 1 set. set size is "
               << current_size_in_bytes << " bytes and " << current_operand_count
               << " operands";
 
