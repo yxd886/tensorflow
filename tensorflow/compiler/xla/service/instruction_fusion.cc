@@ -472,7 +472,148 @@ std::unique_ptr<FusionQueue> InstructionFusion::GetFusionQueue(
   return absl::make_unique<ReversePostOrderFusionQueue>(computation);
 }
 
+
+StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
+  bool changed = false;
+  module_ = module;
+  int64 fuse_count = 0;
+  std::vector<std::vector<bool>>* fusion_config = nullptr;
+  HloModuleConfig module_config;
+  if (config_collection_mode_ != FusionConfigCollection::kOff) {
+    module_config = module->config();
+    fusion_config = module_config.mutable_fusion_config();
+    fusion_config->clear();
+  }
+
+  // Use sorted computations because fusion configuration is order-sensitive.
+  for (auto* computation : module->MakeNonfusionComputationsSorted()) {
+    CHECK(!computation->IsFusionComputation());
+    computation_ = computation;
+    reachability_ = HloReachabilityMap::Build(computation_);
+
+    HloInstructionSet do_not_duplicate;
+    // If we allow duplications, we need to compute which instructions we do not
+    // want to duplicate based on a global analysis of the graph.
+
+    do_not_duplicate =
+          ComputeGloballyUnfusible(computation_->MakeInstructionPostOrder());
+
+    auto fusion_queue = GetFusionQueue(computation_);
+
+    // Instruction fusion effectively fuses edges in the computation graph
+    // (producer instruction -> consumer instruction) so we iterate over all
+    // edges. When we fuse an edge, we create a copy of the producer inside the
+    // fusion instruction.
+    while (true) {
+      auto next_entry =
+          fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
+      HloInstruction* instruction = next_entry.first;
+      if (instruction == nullptr) {
+        break;
+      }
+
+      if (!instruction->IsFusible() &&
+          instruction->opcode() != HloOpcode::kFusion) {
+        continue;
+      }
+
+      std::vector<int64>& sorted_operand_numbers = next_entry.second;
+
+      for (int64 i : sorted_operand_numbers) {
+        HloInstruction* operand = instruction->mutable_operand(i);
+        VLOG(5) << "Considering fusion of: " << instruction->ToString()
+                << " with operand " << operand->name();
+
+        if (!operand->IsFusible()) {
+          VLOG(3) << "Operand (" << operand->ToString() << ") is not fusible";
+          continue;
+        }
+
+        // Consumes a unit of compiler fuel and returns true if we should
+        // continue with the transformation.
+        auto consume_fuel = [&] {
+          return ConsumeFuel(name(), /*ran_out_of_fuel_msg=*/[&] {
+            return absl::StrFormat("Not fusing operand %d of %s, namely, %s", i,
+                                   instruction->ToString(),
+                                   operand->ToString());
+          });
+        };
+
+        HloInstruction* fusion_instruction = nullptr;
+        // Try "regular" fusion if the operand may be duplicated. Otherwise,
+        // perform multi-output fusion, unless this creates a cycle.
+        if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
+            ShouldFuse(instruction, i)) {
+          if (consume_fuel()) {
+            fusion_queue->PreFusion(operand, instruction);
+            fusion_instruction = Fuse(operand, instruction);
+          }
+        } else if (!may_duplicate_&&ShouldFuse(instruction, i) &&
+                   !MultiOutputFusionCreatesCycle(operand, instruction)) {
+          if (consume_fuel()) {
+            fusion_queue->PreFusion(operand, instruction);
+            fusion_instruction = FuseIntoMultiOutput(operand, instruction);
+          }
+        }
+
+        if (fusion_instruction == nullptr) {
+          continue;
+        }
+
+        fusion_queue->OnFusingInstruction(fusion_instruction, operand,
+                                          instruction);
+        changed = true;
+        ++fuse_count;
+
+        if (operand->user_count() == 0) {
+          do_not_duplicate.erase(operand);
+          // Operand is now dead. Remove from queue.
+          fusion_queue->RemoveInstruction(operand);
+          // Remove from computation.
+          TF_RETURN_IF_ERROR(computation_->RemoveInstruction(operand));
+        }
+
+        if (fusion_instruction != instruction) {
+          do_not_duplicate.erase(instruction);
+        }
+        break;
+      }
+    }
+
+    if (config_collection_mode_ != FusionConfigCollection::kOff) {
+      const std::vector<bool>* comp_fusion_config =
+          fusion_queue->FusionConfiguration();
+      if (comp_fusion_config && !comp_fusion_config->empty()) {
+        fusion_config->push_back(*comp_fusion_config);
+      }
+    }
+  }
+
+  if (config_collection_mode_ != FusionConfigCollection::kOff) {
+    int64 fused_count = 0;
+    for (auto& config_per_computation : *fusion_config) {
+      for (auto edge : config_per_computation) {
+        if (edge) {
+          ++fused_count;
+        }
+      }
+    }
+    VLOG(1) << "There are " << fused_count << " fused bits that cause "
+            << fuse_count << " fusion actions.";
+    VLOG(1) << FusionConfigToString(*fusion_config);
+    module->set_config(module_config);
+  }
+
+  reachability_.reset();
+
+  VLOG(1) << "Fusion count: " << fuse_count;
+
+  return changed;
+}
+
+
 StatusOr<bool> InstructionFusion::Run(HloModule* module) {
+  return NewRun(module);
   bool changed = false;
   module_ = module;
   int64 fuse_count = 0;

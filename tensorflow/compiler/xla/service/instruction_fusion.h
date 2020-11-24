@@ -53,6 +53,10 @@ class InstructionFusion : public HloModulePass {
   // computation was changed (instructions were fused).
   StatusOr<bool> Run(HloModule* module) override;
 
+  //customize fusion logic by xdyi
+  StatusOr<bool> NewRun(HloModule* module);
+
+
   // Returns true if the computation of the given instruction is significantly
   // more expensive than just writing all the values of the instructions' result
   // array. Expensive operations will not be duplicated.
