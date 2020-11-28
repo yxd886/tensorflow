@@ -853,6 +853,8 @@ bool InstructionFusion::ShouldFuse(HloInstruction* consumer,
       !IsAlwaysDuplicable(*producer)) {
     VLOG(4) << "Stopping: fusion may duplicate operand ("
             << producer->ToString() << ") , and this is expensive";
+    std::cout << "Stopping: fusion may duplicate operand ("
+            << producer->ToString() << ") , and this is expensive"<<std::endl;
     return false;
   }
 
