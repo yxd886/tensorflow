@@ -25,6 +25,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/pattern_matcher.h"
 #include "tensorflow/compiler/xla/shape_util.h"
 #include "tensorflow/compiler/xla/xla_data.pb.h"
+#include <iostream>
 
 namespace xla {
 namespace gpu {
@@ -61,6 +62,8 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
   // Output fusions are not currently supported on GPUs.
   if (producer->opcode() == HloOpcode::kFusion) {
     VLOG(4) << "Producer " << producer->name() << " is a fusion op";
+    std:cout << "Producer " << producer->name() << " is a fusion op"<<std::endl;
+
     return false;
   }
   // Cost condition: not fuse (simple, expensive producers) and (consumers who
@@ -69,6 +72,8 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
       ReusesOperandElements(consumer, operand_index)) {
     VLOG(4) << "Do not fuse simple, expensive producer " << producer->name()
             << " and consumer which reuses operand elements.";
+    std:cout << "Do not fuse simple, expensive producer " << producer->name()
+            << " and consumer which reuses operand elements."<<std::endl;
     return false;
   }
 
@@ -76,6 +81,8 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
       !InstructionFusion::ShouldFuse(consumer, operand_index)) {
     VLOG(4) << "Producer " << producer->name()
             << " is not fusible or should not be fused.";
+    std:cout << "Producer " << producer->name()
+            << " is not fusible or should not be fused."<<std::endl;
     return false;
   }
   return true;
@@ -86,6 +93,8 @@ bool GpuInstructionFusion::ShouldFuse(HloInstruction* consumer,
   if (!ShouldFuseInexpensiveChecks(consumer, operand_index)) {
     VLOG(5) << "Not fusing inexpensive checks of operand " << operand_index
             << " of " << consumer->ToString();
+    std::cout << "Not fusing inexpensive checks of operand " << operand_index
+            << " of " << consumer->ToString()<<std::endl;
     return false;
   }
   auto producer = consumer->operand(operand_index);
@@ -95,6 +104,8 @@ bool GpuInstructionFusion::ShouldFuse(HloInstruction* consumer,
                             /*is_consumer_producer_fusion=*/true)) {
     VLOG(5) << "Fusion of (" << producer->ToString() << ") into ("
             << consumer->ToString() << ") would be too large";
+    std::cout << "Fusion of (" << producer->ToString() << ") into ("
+            << consumer->ToString() << ") would be too large"<<std::endl;
     return false;
   }
   if (consumer->opcode() != HloOpcode::kFusion) {
@@ -115,6 +126,8 @@ bool GpuInstructionFusion::ShouldFuse(HloInstruction* consumer,
   if (fusion_node_evaluations_.at(consumer).CodeDuplicationTooHigh(producer)) {
     VLOG(5) << "Fusion of " << producer->name() << " into " << consumer->name()
             << " would result in overly large code duplication.";
+    std::cout << "Fusion of " << producer->name() << " into " << consumer->name()
+            << " would result in overly large code duplication."<<std::endl;
     return false;
   }
   return true;
