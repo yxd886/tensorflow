@@ -301,7 +301,7 @@ Status GpuCompiler::OptimizeHloModule(
         /*layout_sensitive=*/true,
         /*allow_mixed_precision=*/false,
         LayoutAssignment::InstructionCanChangeLayout);
-    fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/false);
+    //fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/false);
     fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
     fusion.AddPass<FusionMerger>();
     fusion.AddPass<GpuMultiOutputFusion>();

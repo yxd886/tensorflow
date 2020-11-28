@@ -36,6 +36,8 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/platform/logging.h"
 
+#include<iostream>
+
 namespace xla {
 namespace {
 
@@ -514,7 +516,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
 
       if (!instruction->IsFusible() &&
           instruction->opcode() != HloOpcode::kFusion) {
-          VLOG(3) << "instruction (" << instruction->ToString() << ") is not fusible";
+          std::cout << "instruction (" << instruction->ToString() << ") is not fusible";
         continue;
       }
 
@@ -526,7 +528,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
                 << " with operand " << operand->name();
 
         if (!operand->IsFusible()) {
-          VLOG(3) << "Operand (" << operand->ToString() << ") is not fusible";
+        	std::cout << "Operand (" << operand->ToString() << ") is not fusible";
           continue;
         }
 
@@ -544,10 +546,10 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
         // Try "regular" fusion if the operand may be duplicated. Otherwise,
         // perform multi-output fusion, unless this creates a cycle.
         if (do_not_duplicate.count(operand)!=0){
-            VLOG(3) << "do_not_duplicate has " << operand->ToString();
+        	std::cout << "do_not_duplicate has " << operand->ToString();
         }
         if (!ShouldFuse(instruction, i)){
-            VLOG(3) << "The " <<i<<"operand:"<<operand->ToString()<<"cannot fused to "<<"instruction: "<<instruction->ToString();
+        	std::cout << "The " <<i<<"operand:"<<operand->ToString()<<"cannot fused to "<<"instruction: "<<instruction->ToString();
         }
         if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
             ShouldFuse(instruction, i)) {
