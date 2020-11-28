@@ -516,7 +516,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
 
       if (!instruction->IsFusible() &&
           instruction->opcode() != HloOpcode::kFusion) {
-          std::cout << "instruction (" << instruction->ToString() << ") is not fusible";
+          std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
         continue;
       }
 
@@ -528,7 +528,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
                 << " with operand " << operand->name();
 
         if (!operand->IsFusible()) {
-        	std::cout << "Operand (" << operand->ToString() << ") is not fusible";
+        	std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
           continue;
         }
 
@@ -546,10 +546,10 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
         // Try "regular" fusion if the operand may be duplicated. Otherwise,
         // perform multi-output fusion, unless this creates a cycle.
         if (do_not_duplicate.count(operand)!=0){
-        	std::cout << "do_not_duplicate has " << operand->ToString();
+        	std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
         }
         if (!ShouldFuse(instruction, i)){
-        	std::cout << "The " <<i<<"operand:"<<operand->ToString()<<"cannot fused to "<<"instruction: "<<instruction->ToString();
+        	std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
         }
         if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
             ShouldFuse(instruction, i)) {
