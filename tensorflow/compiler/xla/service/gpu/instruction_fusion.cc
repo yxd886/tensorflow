@@ -62,7 +62,7 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
   // Output fusions are not currently supported on GPUs.
   if (producer->opcode() == HloOpcode::kFusion) {
     VLOG(4) << "Producer " << producer->name() << " is a fusion op";
-    std:cout << "Producer " << producer->name() << " is a fusion op"<<std::endl;
+    std::cout << "Producer " << producer->name() << " is a fusion op"<<std::endl;
 
     return false;
   }
@@ -72,7 +72,7 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
       ReusesOperandElements(consumer, operand_index)) {
     VLOG(4) << "Do not fuse simple, expensive producer " << producer->name()
             << " and consumer which reuses operand elements.";
-    std:cout << "Do not fuse simple, expensive producer " << producer->name()
+    std::cout << "Do not fuse simple, expensive producer " << producer->name()
             << " and consumer which reuses operand elements."<<std::endl;
     return false;
   }
@@ -81,7 +81,7 @@ bool GpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
       !InstructionFusion::ShouldFuse(consumer, operand_index)) {
     VLOG(4) << "Producer " << producer->name()
             << " is not fusible or should not be fused.";
-    std:cout << "Producer " << producer->name()
+    std::cout << "Producer " << producer->name()
             << " is not fusible or should not be fused."<<std::endl;
     return false;
   }
