@@ -516,7 +516,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
 
       if (!instruction->IsFusible() &&
           instruction->opcode() != HloOpcode::kFusion) {
-          std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
+          //std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
         continue;
       }
 
@@ -528,7 +528,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
                 << " with operand " << operand->name();
 
         if (!operand->IsFusible()) {
-        	std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
+        	//std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
           continue;
         }
 
@@ -545,12 +545,12 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
         HloInstruction* fusion_instruction = nullptr;
         // Try "regular" fusion if the operand may be duplicated. Otherwise,
         // perform multi-output fusion, unless this creates a cycle.
-        if (do_not_duplicate.count(operand)!=0){
-        	std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
-        }
-        if (!ShouldFuse(instruction, i)){
-        	std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
-        }
+        //if (do_not_duplicate.count(operand)!=0){
+        	//std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
+        //}
+        //if (!ShouldFuse(instruction, i)){
+        	//std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
+        //}
         if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
             ShouldFuse(instruction, i)) {
           if (consume_fuel()) {
@@ -853,8 +853,7 @@ bool InstructionFusion::ShouldFuse(HloInstruction* consumer,
       !IsAlwaysDuplicable(*producer)) {
     VLOG(4) << "Stopping: fusion may duplicate operand ("
             << producer->ToString() << ") , and this is expensive";
-    std::cout << "Stopping: fusion may duplicate operand ("
-            << producer->ToString() << ") , and this is expensive"<<std::endl;
+    //std::cout << "Stopping: fusion may duplicate operand ("<< producer->ToString() << ") , and this is expensive"<<std::endl;
     return false;
   }
 
