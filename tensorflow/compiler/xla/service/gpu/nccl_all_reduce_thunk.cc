@@ -21,6 +21,9 @@ limitations under the License.
 #include <string>
 #include <utility>
 #include <vector>
+#include <mpi.h>
+#include <unistd.h>
+#include <stdint.h>
 
 #include "absl/algorithm/container.h"
 #include "absl/base/thread_annotations.h"
@@ -90,6 +93,32 @@ bool IsGlobalNcclConfig() {
   static bool global_nccl_config = std::getenv("NCCL_COMM_ID") != nullptr;
   return global_nccl_config;
 }
+
+
+
+
+
+static void getHostName(char* hostname, int maxlen) {
+  gethostname(hostname, maxlen);
+  for (int i=0; i< maxlen; i++) {
+    if (hostname[i] == '.') {
+      hostname[i] = '\0';
+      return;
+    }
+  }
+}
+
+
+static uint64_t getHostHash(const char* string) {
+  // Based on DJB2, result = result * 33 + char
+  uint64_t result = 5381;
+  for (int c = 0; string[c] != '\0'; c++){
+    result = ((result << 5) + result) + string[c];
+  }
+  return result;
+}
+
+
 
 // Functions to translate an ncclResult_t/cudaError_t to a Status object.  Used
 // by the macros below.
@@ -285,6 +314,24 @@ class NcclClique {
     auto cuda_device_restorer = MakeCleanup(
         [&] { XLA_CUDA_WARN_IF_ERROR(cudaSetDevice(initial_cuda_device)); });
 
+
+
+    // Add MPI to support multi-host allreudce
+    MPI_Init(&argc, &argv);
+    int nProcs = 1, proc = 0;
+    int localRank = 0;
+    char hostname[1024];
+    getHostName(hostname, 1024);
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+    uint64_t hostHashs[nProcs];
+    hostHashs[proc] = getHostHash(hostname);
+    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, hostHashs, sizeof(uint64_t), MPI_BYTE, MPI_COMM_WORLD);
+    for (int p=0; p<nProcs; p++) {
+      if (p == proc) break;
+      if (hostHashs[p] == hostHashs[proc]) localRank++;
+    }
+
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
     // populated until the End() call.  This unfortunately makes error handling
     // tricky.
@@ -292,23 +339,34 @@ class NcclClique {
     TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,
                         maybe_nccl_unique_id);
     ncclUniqueId nccl_id;
-    if (nccl_id_string) {
-      TF_RETURN_IF_ERROR(StringToNcclUniqueId(*nccl_id_string, &nccl_id));
-    } else {
-      XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+    if (proc==0){
+        if (nccl_id_string) {
+          TF_RETURN_IF_ERROR(StringToNcclUniqueId(*nccl_id_string, &nccl_id));
+        } else {
+          XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+        }
     }
+
+    MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+
+
+
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupStart());
     Status status = [&] {
       for (int i = 0; i < local_device_ordinals_.size(); ++i) {
         XLA_CUDA_RETURN_IF_ERROR(cudaSetDevice(local_device_ordinals_[i]));
         XLA_CUDA_RETURN_IF_ERROR(ncclCommInitRank(&raw_comms[i],
-                                                  num_global_devices_, nccl_id,
-                                                  local_device_ranks_.at(i)));
+                                                  num_global_devices_*nProcs, nccl_id,
+												  proc*num_global_devices_+local_device_ranks_.at(i)));
       }
       return Status::OK();
     }();
     // Always call ncclGroupEnd().
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupEnd());
+
+    MPI_Finalize();
+
 
     // Populate comms_ from the raw comms we created above.  If we encountered
     // an error above we'll later clear comms_ thus destroying any raw comms
