@@ -21,9 +21,11 @@ limitations under the License.
 #include <string>
 #include <utility>
 #include <vector>
-#include <mpi.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <sstream>
+#include <iostream>
+#include<fstream>
 
 #include "absl/algorithm/container.h"
 #include "absl/base/thread_annotations.h"
@@ -93,31 +95,6 @@ bool IsGlobalNcclConfig() {
   static bool global_nccl_config = std::getenv("NCCL_COMM_ID") != nullptr;
   return global_nccl_config;
 }
-
-
-
-
-
-static void getHostName(char* hostname, int maxlen) {
-  gethostname(hostname, maxlen);
-  for (int i=0; i< maxlen; i++) {
-    if (hostname[i] == '.') {
-      hostname[i] = '\0';
-      return;
-    }
-  }
-}
-
-
-static uint64_t getHostHash(const char* string) {
-  // Based on DJB2, result = result * 33 + char
-  uint64_t result = 5381;
-  for (int c = 0; string[c] != '\0'; c++){
-    result = ((result << 5) + result) + string[c];
-  }
-  return result;
-}
-
 
 
 // Functions to translate an ncclResult_t/cudaError_t to a Status object.  Used
@@ -236,10 +213,25 @@ Status StringToNcclUniqueId(const std::string& str_id, ncclUniqueId* nccl_id) {
         "ncclUniqueId string must have %d bytes, got %d bytes", str_id.size(),
         NCCL_UNIQUE_ID_BYTES);
   }
+
   // NcclUniqueId is internally just a char[].
   static_assert(sizeof(ncclUniqueId) == NCCL_UNIQUE_ID_BYTES,
                 "NCCL_UNIQUE_ID_BYTES");
   std::memcpy(static_cast<void*>(nccl_id), str_id.data(), NCCL_UNIQUE_ID_BYTES);
+  return Status::OK();
+}
+
+
+Status charToNcclUniqueId(char* str_id, ncclUniqueId* nccl_id) {
+
+  std::memcpy(static_cast<void*>(nccl_id), str_id, NCCL_UNIQUE_ID_BYTES);
+  return Status::OK();
+}
+
+Status NcclUniqueIdTochar(char* str_id, ncclUniqueId* nccl_id) {
+  // NcclUniqueId is internally just a char[].
+  static_assert(sizeof(ncclUniqueId) == NCCL_UNIQUE_ID_BYTES,"NCCL_UNIQUE_ID_BYTES");
+  std::memcpy(static_cast<void*>(str_id),static_cast<void*>(nccl_id), NCCL_UNIQUE_ID_BYTES);
   return Status::OK();
 }
 
@@ -317,39 +309,88 @@ class NcclClique {
 
 
     // Add MPI to support multi-host allreudce
-    MPI_Init(&argc, &argv);
-    int nProcs = 1, proc = 0;
-    int localRank = 0;
-    char hostname[1024];
-    getHostName(hostname, 1024);
-    MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-    MPI_Comm_rank(MPI_COMM_WORLD, &proc);
-    uint64_t hostHashs[nProcs];
-    hostHashs[proc] = getHostHash(hostname);
-    MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, hostHashs, sizeof(uint64_t), MPI_BYTE, MPI_COMM_WORLD);
-    for (int p=0; p<nProcs; p++) {
-      if (p == proc) break;
-      if (hostHashs[p] == hostHashs[proc]) localRank++;
-    }
+    //MPI_Init(&argc, &argv);
+    //int nProcs = 1, proc = 0;
+    //int localRank = 0;
+    //char hostname[1024];
+    //getHostName(hostname, 1024);
+    //MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+    //MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+    //uint64_t hostHashs[nProcs];
+    //hostHashs[proc] = getHostHash(hostname);
+    //MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, hostHashs, sizeof(uint64_t), MPI_BYTE, MPI_COMM_WORLD);
+    //for (int p=0; p<nProcs; p++) {
+    //  if (p == proc) break;
+    //  if (hostHashs[p] == hostHashs[proc]) localRank++;
+    //}
 
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
     // populated until the End() call.  This unfortunately makes error handling
     // tricky.
+    const char* proc_id=std::getenv("PROC_ID");
+
+    int proc;
+	std::stringstream ss(proc_id);
+	ss >> proc;
+
+	int nProcs;
+    const char* nproc_id=std::getenv("PROC_NUM");
+	std::stringstream pp(nproc_id);
+	pp >> nProcs;
+
     std::vector<ncclComm_t> raw_comms(local_device_ordinals_.size(), nullptr);
-    TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,
-                        maybe_nccl_unique_id);
+
+
+	char id_string[NCCL_UNIQUE_ID_BYTES];
     ncclUniqueId nccl_id;
-    if (proc==0){
-        if (nccl_id_string) {
-          TF_RETURN_IF_ERROR(StringToNcclUniqueId(*nccl_id_string, &nccl_id));
-        } else {
-          XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
-        }
-    }
 
-    MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
+    /*
+	std::ifstream out("nccl_id.txt");
+	out.read((char *)id_string,NCCL_UNIQUE_ID_BYTES);
+	out.close();
+
+    const StatusOr<absl::optional<std::string>> hack_nccl_id(id_string);
+
+    //TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,
+    //                    maybe_nccl_unique_id);
+    TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,hack_nccl_id);
+    TF_RETURN_IF_ERROR(charToNcclUniqueId(id_string, &nccl_id));
+	*/
 
 
+
+
+	//if (nccl_id_string) {
+	//  TF_RETURN_IF_ERROR(StringToNcclUniqueId(*nccl_id_string, &nccl_id));
+	//} else {
+	//  XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+	//}
+
+
+	if(proc==0){
+		XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+		NcclUniqueIdTochar(id_string, &nccl_id);
+		std::ofstream out("nccl_id.txt");
+		out.write((char *)id_string,NCCL_UNIQUE_ID_BYTES);
+		out.close();
+	}else{
+
+		std::ifstream in("nccl_id.txt");
+		while (!in.is_open()){
+	        VLOG(3) << "waiting for nccl key";
+			sleep(1);
+			in.open("nccl_id.txt");
+		}
+		in.read((char *)id_string,NCCL_UNIQUE_ID_BYTES);
+		in.close();
+		charToNcclUniqueId(id_string, &nccl_id);
+	}
+
+
+
+
+
+    //MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
 
 
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupStart());
@@ -359,13 +400,15 @@ class NcclClique {
         XLA_CUDA_RETURN_IF_ERROR(ncclCommInitRank(&raw_comms[i],
                                                   num_global_devices_*nProcs, nccl_id,
 												  proc*num_global_devices_+local_device_ranks_.at(i)));
+        VLOG(3) << "total device: "<<num_global_devices_*nProcs<<"current_device_index: "<<proc*num_global_devices_+local_device_ranks_.at(i);
+
       }
       return Status::OK();
     }();
     // Always call ncclGroupEnd().
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupEnd());
 
-    MPI_Finalize();
+    //MPI_Finalize();
 
 
     // Populate comms_ from the raw comms we created above.  If we encountered
