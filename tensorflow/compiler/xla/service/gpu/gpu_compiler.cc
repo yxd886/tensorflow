@@ -12,8 +12,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
-#define OP_FUSION
-#define TENSOR_FUSION
+//#define OP_FUSION
+//#define TENSOR_FUSION
 
 #include "tensorflow/compiler/xla/service/gpu/gpu_compiler.h"
 
@@ -288,7 +288,15 @@ Status GpuCompiler::OptimizeHloModule(
   // Run target-specific HLO optimization passes after layout assignment.
   TF_RETURN_IF_ERROR(OptimizeHloPostLayoutAssignment(hlo_module, stream_exec,
                                                      device_allocator));
-#ifdef OP_FUSION
+
+
+	const char* op_fusion_char=std::getenv("OP_FUSION");
+
+	int op_fusion_level=0;
+	std::stringstream ss(op_fusion_char);
+	ss >> op_fusion_level;
+
+
   {
 	//cout<<"In op fusion pass"<<endl;
     HloPassFix<HloPassPipeline> fusion("fusion");
@@ -302,9 +310,23 @@ Status GpuCompiler::OptimizeHloModule(
         /*allow_mixed_precision=*/false,
         LayoutAssignment::InstructionCanChangeLayout);
     //fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/false);
-    fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
-    fusion.AddPass<FusionMerger>();
-    fusion.AddPass<GpuMultiOutputFusion>();
+
+    if (op_fusion_level==1){ //only duplicate fusion
+        fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
+        fusion.AddPass<FusionMerger>();
+    }else if(op_fusion_level==2){//only multioutput fusion
+
+        fusion.AddPass<FusionMerger>();
+        fusion.AddPass<GpuMultiOutputFusion>();
+
+    }else if (op_fusion_level==3){ // both duplicate and multioutput fusion
+
+        fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
+        fusion.AddPass<FusionMerger>();
+        fusion.AddPass<GpuMultiOutputFusion>();
+    }
+
+
     fusion.AddPass<HloCSE>(/*is_layout_sensitive=*/true,
                            /*only_fusion_computations=*/true);
     fusion.AddPass<HloDCE>();
@@ -319,20 +341,23 @@ Status GpuCompiler::OptimizeHloModule(
 	//cout<<"out op fusion pass"<<endl;
 
   }
-#endif
 
-#ifdef TENSOR_FUSION
+	const char* tensor_fusion_char=std::getenv("TENSOR_FUSION");
+
+	int tensor_fusion_level=0;
+	std::stringstream tt(tensor_fusion_char);
+	tt >> tensor_fusion_level;
+
   {
 	//cout<<"In tensor fusion pass"<<endl;
     HloPassPipeline pipeline("all_reduce_combiner");
     pipeline.AddPass<AllReduceCombiner>(
-        /*combine_threshold_in_bytes=*/30 * 1024 * 1024,
-       /*combine_threshold_count=*/256);
+        /*combine_threshold_in_bytes=*/tensor_fusion_level * 1024 * 1024,
+       /*combine_threshold_count=*/1000000);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
 	////cout<<"out tensor fusion pass"<<endl;
 
   }
-#endif
   {
     // Now we allow to replace any transposes outside of fusions with bitcasts.
 	//cout<<"In final_algebraic_simplifier pass"<<endl;
