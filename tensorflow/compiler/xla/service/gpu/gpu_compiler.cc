@@ -313,7 +313,7 @@ Status GpuCompiler::OptimizeHloModule(
 
     if (op_fusion_level==1){ //only duplicate fusion
         fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
-        fusion.AddPass<FusionMerger>();
+        //fusion.AddPass<FusionMerger>();
     }else if(op_fusion_level==2){//only multioutput fusion
 
         fusion.AddPass<FusionMerger>();
