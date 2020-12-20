@@ -22,7 +22,7 @@ limitations under the License.
 #include <atomic>
 #include <functional>
 #include <utility>
-//#include <iostream>
+#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
@@ -296,7 +296,7 @@ Status GpuCompiler::OptimizeHloModule(
 	std::stringstream ss(op_fusion_char);
 	ss >> op_fusion_level;
 
-
+	std::cout<<"op fusion level: "<<op_fusion_level<<std::endl;
   {
 	//cout<<"In op fusion pass"<<endl;
     HloPassFix<HloPassPipeline> fusion("fusion");
@@ -342,11 +342,13 @@ Status GpuCompiler::OptimizeHloModule(
 
   }
 
-	const char* tensor_fusion_char=std::getenv("TENSOR_FUSION");
+	const char* tensor_fusion_char=std::getenv("TENSOR_FUSION_THRESHOLD");
 
 	int tensor_fusion_level=0;
 	std::stringstream tt(tensor_fusion_char);
 	tt >> tensor_fusion_level;
+	std::cout<<"tensor fusion threshold: "<<tensor_fusion_level<<std::endl;
+
 
   {
 	//cout<<"In tensor fusion pass"<<endl;
