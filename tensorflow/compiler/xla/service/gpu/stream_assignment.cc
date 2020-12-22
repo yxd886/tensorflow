@@ -167,7 +167,7 @@ std::unique_ptr<StreamAssignment> AssignStreams(const HloModule& module) {
                       IsStreamNumValid(stream_num_for_rng))
                          ? stream_num_for_rng
                          : ComputeStreamToAssign(*hlo, *stream_assignment,
-                                                 *reachability, seen_gemms);
+                                                 *reachability, seen_gemms)%20;
     if (IsStreamNumValid(stream_num)) {
       stream_assignment->AssignStreamToHlo(hlo, stream_num);
       if (hlo->opcode() == HloOpcode::kRng &&
