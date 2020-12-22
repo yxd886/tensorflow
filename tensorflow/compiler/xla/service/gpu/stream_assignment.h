@@ -31,9 +31,9 @@ class StreamAssignment {
   bool HasStreamAssigned(const HloInstruction& hlo) const;
   // `hlo` needs to outlive this StreamAssignment object.
   void AssignStreamToHlo(const HloInstruction* hlo, int stream_num);
+  int stream_count_ = 1;  // At least the main stream.
 
  private:
-  int stream_count_ = 1;  // At least the main stream.
   absl::flat_hash_map<const HloInstruction*, int> hlo_to_stream_number_;
 };
 
