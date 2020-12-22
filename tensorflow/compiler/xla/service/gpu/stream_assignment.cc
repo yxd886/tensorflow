@@ -79,7 +79,7 @@ int ComputeStreamToAssign(
 
   if (hlo.opcode() == HloOpcode::kAllReduce) {
 	  // xiaodong separate computation and communication.
-	  return 1;
+	  return stream_assignment.stream_count_;
   }else{
 	    for (const auto* operand : hlo.operands()) {
 
