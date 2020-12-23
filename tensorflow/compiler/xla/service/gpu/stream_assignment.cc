@@ -163,11 +163,15 @@ std::unique_ptr<StreamAssignment> AssignStreams(const HloModule& module) {
   for (const auto* hlo : computation.MakeInstructionPostOrder()) {
     // If we ever enable fusion of RNG instructions, we will need to extend this
     // code to look inside a fused instruction.
-    int stream_num = (hlo->opcode() == HloOpcode::kRng &&
-                      IsStreamNumValid(stream_num_for_rng))
-                         ? stream_num_for_rng
-                         : ComputeStreamToAssign(*hlo, *stream_assignment,
-                                                 *reachability, seen_gemms)%20+1;
+    int stream_num = 0;
+    if(hlo->opcode() == HloOpcode::kRng &&
+                      IsStreamNumValid(stream_num_for_rng)){
+    	stream_num = stream_num_for_rng;
+    }else{
+    	stream_num = ComputeStreamToAssign(*hlo, *stream_assignment,*reachability, seen_gemms);
+    	stream_num = stream_num==0?0:stream_num%32+1;
+    }
+
     if (IsStreamNumValid(stream_num)) {
       stream_assignment->AssignStreamToHlo(hlo, stream_num);
       if (hlo->opcode() == HloOpcode::kRng &&
