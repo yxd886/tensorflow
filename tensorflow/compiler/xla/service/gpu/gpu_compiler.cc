@@ -16,7 +16,7 @@ limitations under the License.
 //#define TENSOR_FUSION
 
 #include "tensorflow/compiler/xla/service/gpu/gpu_compiler.h"
-
+#include <Python.h>
 #include <stdlib.h>
 
 #include <atomic>

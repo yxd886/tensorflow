@@ -1164,6 +1164,7 @@ cc_library(
     alwayslink = True,  # Contains per-platform transfer manager registration
 )
 
+
 cc_library(
     name = "gpu_compiler",
     srcs = [
@@ -1263,6 +1264,7 @@ cc_library(
         "@llvm-project//llvm:Core",
         "@llvm-project//mlir:AllPassesAndDialectsNoRegistration",
         "@llvm-project//mlir:IR",
+	"@python_linux//:python37-lib"
     ],
 )
 
@@ -1961,3 +1963,4 @@ cc_library(
         "@llvm-project//mlir:LLVMDialect",
     ],
 )
+
