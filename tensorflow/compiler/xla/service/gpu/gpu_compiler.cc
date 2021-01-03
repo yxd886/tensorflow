@@ -356,7 +356,7 @@ Status GpuCompiler::OptimizeHloModule(
     pipeline.AddPass<AllReduceCombiner>(
         /*combine_threshold_in_bytes=*/tensor_fusion_level * 1024 * 1024,
        /*combine_threshold_count=*/1000000);
-    pipeline.MaybeDumpHlo(hlo_module,"before_all_reduce","after_all_reduce");
+    pipeline.MaybeDumpHlo(*hlo_module,"before_all_reduce","after_all_reduce");
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
 	////cout<<"out tensor fusion pass"<<endl;
 
