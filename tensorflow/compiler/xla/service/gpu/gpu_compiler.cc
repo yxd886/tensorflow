@@ -358,7 +358,7 @@ Status GpuCompiler::OptimizeHloModule(
        /*combine_threshold_count=*/1000000);
     TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
 	////cout<<"out tensor fusion pass"<<endl;
-    DumpHloModuleIfEnabled(*hlo_module,
+    MyDumpHloModuleIfEnabled(*hlo_module,
                            "after_all_reduce_combiner");
 
   }

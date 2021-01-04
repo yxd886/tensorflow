@@ -345,6 +345,15 @@ void DumpExecutionOptions(const ExecutionOptions& execution_options,
   }
 }
 
+
+void MyDumpHloModuleIfEnabled(const HloModule& module, string_view name) {
+  CanonicalDebugOptions opts(module.config().debug_options());
+  if (opts.should_dump_module(module.name())) {
+    DumpHloModuleImpl(module, /*buffer_assn=*/nullptr, /*profile=*/nullptr,
+                      "training", name, opts);
+  }
+}
+
 void DumpHloModuleIfEnabled(const HloModule& module, string_view name) {
   CanonicalDebugOptions opts(module.config().debug_options());
   if (opts.should_dump_module(module.name())) {
@@ -352,6 +361,8 @@ void DumpHloModuleIfEnabled(const HloModule& module, string_view name) {
                       TimestampFor(module), name, opts);
   }
 }
+
+
 void DumpHloModuleIfEnabled(const HloModule& module,
                             const BufferAssignment& buffer_assn,
                             string_view name) {
