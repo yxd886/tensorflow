@@ -127,6 +127,18 @@ using namespace std;
 namespace xla {
 namespace gpu {
 
+
+bool IsCoreModule( HloModule* hlo_module){
+	for (auto* computation : hlo_module->MakeComputationPostOrder()) {
+		for (auto* instruction : computation->MakeInstructionPostOrder()) {
+			if (instruction->opcode() == HloOpcode::kAllReduce){
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
                          const char* target_triple, const char* data_layout)
     : platform_id_(platform_id),
@@ -139,6 +151,10 @@ GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
 Status GpuCompiler::OptimizeHloModule(
     HloModule* hlo_module, se::StreamExecutor* stream_exec,
     se::DeviceMemoryAllocator* device_allocator) {
+
+	if(IsCoreModule(hlo_module)){
+		cout<<"!!!!!!!!!!!!!This is core module!"<<endl;
+	}
   {
 	//cout<<"In OptimizeHloModule start"<<endl;
     HloPassPipeline pipeline("optimization");
