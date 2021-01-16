@@ -128,7 +128,7 @@ namespace xla {
 namespace gpu {
 
 
-bool IsCoreModule( HloModule* hlo_module){
+bool IsCoreModule( HloModule* hlo_moudle){
 
 	/*for (auto* computation : hlo_module->MakeComputationPostOrder()) {
 		for (auto* instruction : computation->MakeInstructionPostOrder()) {
