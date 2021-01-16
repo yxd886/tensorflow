@@ -26,6 +26,7 @@ limitations under the License.
 #include <sstream>
 #include <iostream>
 #include<fstream>
+#include <mpi.h>
 
 #include "absl/algorithm/container.h"
 #include "absl/base/thread_annotations.h"
