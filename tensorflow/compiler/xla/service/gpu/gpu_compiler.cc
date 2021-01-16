@@ -129,14 +129,25 @@ namespace gpu {
 
 
 bool IsCoreModule( HloModule* hlo_module){
-	for (auto* computation : hlo_module->MakeComputationPostOrder()) {
+
+	/*for (auto* computation : hlo_module->MakeComputationPostOrder()) {
 		for (auto* instruction : computation->MakeInstructionPostOrder()) {
 			if (instruction->opcode() == HloOpcode::kAllReduce){
 				return true;
 			}
 		}
 	}
-	return false;
+	return false;*/
+	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	int core_id=0;
+	std::stringstream ss(core_id_char);
+	ss >> core_id;
+	if(core_id==hlo_moudle->unique_id()){
+		return true;
+	}else{
+		return false;
+	}
+
 }
 
 GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
