@@ -311,18 +311,22 @@ class NcclClique {
 
     // Add MPI to support multi-host allreudce
     MPI_Init(nullptr, nullptr);
-    int nProcs = 1, proc = 0;
+    int nProcs = 1, proc = 2;
     int localRank = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
     MPI_Comm_rank(MPI_COMM_WORLD, &proc);
     ncclUniqueId nccl_id;
 	if(proc==0){
 		XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+		std::cout<<"creating nccl id"<<std::endl;
 		//NcclUniqueIdTochar(id_string, &nccl_id);
+	}else{
+		std::cout<<"waiting for master"<<std::endl;
 	}
     MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
     std::vector<ncclComm_t> raw_comms(local_device_ordinals_.size(), nullptr);
 
+    MPI_Finalize();
 
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
     // populated until the End() call.  This unfortunately makes error handling
@@ -390,7 +394,6 @@ class NcclClique {
     // Always call ncclGroupEnd().
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupEnd());
 
-    //MPI_Finalize();
 
 
     // Populate comms_ from the raw comms we created above.  If we encountered

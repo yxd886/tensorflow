@@ -23,6 +23,8 @@ limitations under the License.
 #include <functional>
 #include <utility>
 #include <iostream>
+#include <fstream>
+
 
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
@@ -165,10 +167,6 @@ GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
 Status GpuCompiler::OptimizeHloModule(
     HloModule* hlo_module, se::StreamExecutor* stream_exec,
     se::DeviceMemoryAllocator* device_allocator) {
-
-	if(IsCoreModule(hlo_module)){
-		cout<<"!!!!!!!!!!!!!This is core module!"<<endl;
-	}
   {
 	//cout<<"In OptimizeHloModule start"<<endl;
     HloPassPipeline pipeline("optimization");
@@ -551,8 +549,21 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
       tensorflow::profiler::TraceMeLevel::kInfo);
   //cout<<"out TraceMe activity pass"<<endl;
 
-  TF_RETURN_IF_ERROR(
-      OptimizeHloModule(module.get(), stream_exec, device_allocator));
+  if(IsCoreModule(module.get())){
+	cout<<"!!!!!!!!!!!!!This is core module!"<<endl;
+	HloProto hlo_proto;
+	fstream input("results/result.pb", ios::in | ios::binary);
+
+
+	hlo_proto.ParseFromIstream(&input);
+	auto module_proto = hlo_proto.hlo_module();
+	DebugOptions debug_options;
+	TF_ASSIGN_OR_RETURN(auto module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
+	TF_ASSIGN_OR_RETURN(module, HloModule::CreateFromProto(module_proto,module_config));
+  }else{
+	  TF_RETURN_IF_ERROR(
+	      OptimizeHloModule(module.get(), stream_exec, device_allocator));
+  }
 
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
   //cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;

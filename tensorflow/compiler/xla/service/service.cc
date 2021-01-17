@@ -842,16 +842,18 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
   //outfile.close();
 
   ////cout << "Before RunBackend" << endl;
+  auto new_module_proto = module->ToProto();
+
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,
                       backend->compiler()->RunBackend(
                           std::move(module), executor, device_allocator));
   ////cout << "After RunBackend" << endl;
 
   const auto& debug_opts = module_config->debug_options();
-  if (DumpingEnabledForHloModule(module_proto.name(), debug_opts) &&
+  if (DumpingEnabledForHloModule(new_module_proto.name(), debug_opts) &&
       debug_opts.xla_dump_hlo_snapshots()) {
     auto hlo_proto = absl::make_unique<HloProto>();
-    *hlo_proto->mutable_hlo_module() = module_proto;
+    *hlo_proto->mutable_hlo_module() = new_module_proto;
     executable->set_hlo_proto(std::move(hlo_proto));
   }
 
