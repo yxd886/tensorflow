@@ -139,6 +139,9 @@ bool IsCoreModule( HloModule* hlo_moudle){
 	}
 	return false;*/
 	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	if(!core_id_char){
+		return false;
+	}
 	int core_id=0;
 	std::stringstream ss(core_id_char);
 	ss >> core_id;

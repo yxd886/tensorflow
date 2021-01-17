@@ -458,7 +458,7 @@ tf_cuda_library(
         "//tensorflow/compiler/xla/service:collective_ops_utils",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/synchronization",
-        #"@openmpi//:openmpi-lib",
+        "@openmpi//:openmpi-lib",
         "//tensorflow/compiler/xla:util",
         "//tensorflow/compiler/xla/service:buffer_assignment",
         "//tensorflow/compiler/xla/service:hlo",
