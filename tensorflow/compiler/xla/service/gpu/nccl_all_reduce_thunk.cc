@@ -310,24 +310,27 @@ class NcclClique {
 
 
     // Add MPI to support multi-host allreudce
-    //MPI_Init(&argc, &argv);
-    //int nProcs = 1, proc = 0;
-    //int localRank = 0;
-    //char hostname[1024];
-    //getHostName(hostname, 1024);
-    //MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-    //MPI_Comm_rank(MPI_COMM_WORLD, &proc);
-    //uint64_t hostHashs[nProcs];
-    //hostHashs[proc] = getHostHash(hostname);
-    //MPI_Allgather(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, hostHashs, sizeof(uint64_t), MPI_BYTE, MPI_COMM_WORLD);
-    //for (int p=0; p<nProcs; p++) {
-    //  if (p == proc) break;
-    //  if (hostHashs[p] == hostHashs[proc]) localRank++;
-    //}
+    MPI_Init(nullptr, nullptr);
+    int nProcs = 1, proc = 0;
+    int localRank = 0;
+    MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+    ncclUniqueId nccl_id;
+	if(proc==0){
+		XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
+		NcclUniqueIdTochar(id_string, &nccl_id);
+	}
+    MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
+
 
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
     // populated until the End() call.  This unfortunately makes error handling
     // tricky.
+
+
+
+    // nccl_id using file transfer.
+    /*
     const char* proc_id=std::getenv("PROC_ID");
 
     int proc;
@@ -344,29 +347,6 @@ class NcclClique {
 
 	char id_string[NCCL_UNIQUE_ID_BYTES];
     ncclUniqueId nccl_id;
-
-    /*
-	std::ifstream out("nccl_id.txt");
-	out.read((char *)id_string,NCCL_UNIQUE_ID_BYTES);
-	out.close();
-
-    const StatusOr<absl::optional<std::string>> hack_nccl_id(id_string);
-
-    //TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,
-    //                    maybe_nccl_unique_id);
-    TF_ASSIGN_OR_RETURN(const absl::optional<std::string>& nccl_id_string,hack_nccl_id);
-    TF_RETURN_IF_ERROR(charToNcclUniqueId(id_string, &nccl_id));
-	*/
-
-
-
-
-	//if (nccl_id_string) {
-	//  TF_RETURN_IF_ERROR(StringToNcclUniqueId(*nccl_id_string, &nccl_id));
-	//} else {
-	//  XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
-	//}
-
 
 	if(proc==0){
 		XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
@@ -386,12 +366,12 @@ class NcclClique {
 		in.close();
 		charToNcclUniqueId(id_string, &nccl_id);
 	}
+	*/
 
 
 
 
 
-    //MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
 
 
     XLA_CUDA_RETURN_IF_ERROR(ncclGroupStart());
