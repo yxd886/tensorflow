@@ -318,9 +318,10 @@ class NcclClique {
     ncclUniqueId nccl_id;
 	if(proc==0){
 		XLA_CUDA_RETURN_IF_ERROR(ncclGetUniqueId(&nccl_id));
-		NcclUniqueIdTochar(id_string, &nccl_id);
+		//NcclUniqueIdTochar(id_string, &nccl_id);
 	}
     MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
+    std::vector<ncclComm_t> raw_comms(local_device_ordinals_.size(), nullptr);
 
 
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
