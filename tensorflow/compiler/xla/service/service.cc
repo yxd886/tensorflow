@@ -22,7 +22,7 @@ limitations under the License.
 
 
 #include <fstream>
-//#include <iostream>
+#include <iostream>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
@@ -810,6 +810,22 @@ Status Service::GetDeviceHandles(const GetDeviceHandlesRequest* arg,
   return Status::OK();
 }
 
+bool IsCoreModule(){
+
+	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	if(!core_id_char){
+		return false;
+	}
+	int core_id=0;
+	std::stringstream ss(core_id_char);
+	ss >> core_id;
+	if(core_id==HloModule::next_unique_module_id_){
+		return true;
+	}else{
+		return false;
+	}
+
+}
 StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
     const HloModuleProto& module_proto,
     std::unique_ptr<HloModuleConfig> module_config, Backend* backend,
@@ -817,14 +833,34 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
   VLOG(1) << StrFormat(
       "BuildExecutable on service %p with serialized module proto: %s", this,
       module_proto.name());
+  //std::string A = "pmap__multi_device_update_fn__1.52901";
+  std::unique_ptr<HloModule> module;
+  if(IsCoreModule()){
 
-  TF_ASSIGN_OR_RETURN(std::unique_ptr<HloModule> module,
-                      CreateModuleFromProto(module_proto, *module_config));
-  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+	std::cout<<"service find core module."<<std::endl;
+	std::cout<<"module unique id:"<<HloModule::next_unique_module_id_<<std::endl;
 
-  TF_ASSIGN_OR_RETURN(
-      module, backend->compiler()->RunHloPasses(std::move(module), executor,
-                                                device_allocator));
+	HloProto hlo_proto;
+	fstream input("results/result.pb", ios::in | ios::binary);
+	hlo_proto.ParseFromIstream(&input);
+	auto module_proto = hlo_proto.hlo_module();
+	//DebugOptions debug_options;
+	//TF_ASSIGN_OR_RETURN(auto _module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
+	//_module_config.set_debug_options(module_config->debug_options());
+	//_module_config.set_replica_count(2);
+	TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(module_proto,*module_config));
+	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+}else{
+	  TF_ASSIGN_OR_RETURN(module,
+	                      CreateModuleFromProto(module_proto, *module_config));
+	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+	  TF_ASSIGN_OR_RETURN(
+	      module, backend->compiler()->RunHloPasses(std::move(module), executor,
+	                                                device_allocator));
+}
+
 
 
   HloPrintOptions opts = HloPrintOptions()

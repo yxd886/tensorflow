@@ -363,6 +363,8 @@ class HloModule {
     return cross_program_prefetches_;
   }
 
+  // Used to keep track of the next unique module id that should be assigned.
+  static std::atomic<int> next_unique_module_id_;
  private:
   HloComputation* AddComputationInternal(
       std::unique_ptr<HloComputation> computation, bool is_entry,
@@ -386,8 +388,7 @@ class HloModule {
   NameUniquer instruction_name_uniquer_{/*separator=*/"."};
   int next_unique_id_ = 0;
 
-  // Used to keep track of the next unique module id that should be assigned.
-  static std::atomic<int> next_unique_module_id_;
+
   // A unique id to label modules with.
   int unique_id_;
 

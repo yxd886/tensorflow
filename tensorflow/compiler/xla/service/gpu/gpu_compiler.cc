@@ -130,31 +130,6 @@ namespace xla {
 namespace gpu {
 
 
-bool IsCoreModule( HloModule* hlo_moudle){
-
-	/*for (auto* computation : hlo_module->MakeComputationPostOrder()) {
-		for (auto* instruction : computation->MakeInstructionPostOrder()) {
-			if (instruction->opcode() == HloOpcode::kAllReduce){
-				return true;
-			}
-		}
-	}
-	return false;*/
-	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
-	if(!core_id_char){
-		return false;
-	}
-	int core_id=0;
-	std::stringstream ss(core_id_char);
-	ss >> core_id;
-	if(core_id==hlo_moudle->unique_id()){
-		return true;
-	}else{
-		return false;
-	}
-
-}
-
 GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
                          const char* target_triple, const char* data_layout)
     : platform_id_(platform_id),
@@ -593,33 +568,16 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
   tensorflow::profiler::TraceMe activity(
       [&] { return absl::StrCat("HLO Transforms:", module->name()); },
       tensorflow::profiler::TraceMeLevel::kInfo);
-  //cout<<"out TraceMe activity pass"<<endl;
 
-  if(IsCoreModule(module.get())){
-	cout<<"!!!!!!!!!!!!!This is core module!"<<endl;
-	HloProto hlo_proto;
-	fstream input("results/result.pb", ios::in | ios::binary);
-
-
-	hlo_proto.ParseFromIstream(&input);
-	auto module_proto = hlo_proto.hlo_module();
-	DebugOptions debug_options;
-	TF_ASSIGN_OR_RETURN(auto module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
-	module_config.set_debug_options(module->config().debug_options());
-	std::cout<<"core xla_backend_optimization_level:"<<module_config.debug_options().xla_backend_optimization_level()<<std::endl;
-	TF_ASSIGN_OR_RETURN(module, HloModule::CreateFromProto(module_proto,module_config));
-	TF_RETURN_IF_ERROR(MyOptimizeHloModule(module.get(), stream_exec, device_allocator));
-
-  }else{
-	  //std::cout<<"not core xla_backend_optimization_level:"<<module->config().debug_options().xla_backend_optimization_level()<<std::endl;
-	  TF_RETURN_IF_ERROR(
-	      OptimizeHloModule(module.get(), stream_exec, device_allocator));
-  }
-
+  TF_RETURN_IF_ERROR(
+	  OptimizeHloModule(module.get(), stream_exec, device_allocator));
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
   //cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
 
   return std::move(module);
+
+
+
 }
 
 // The order of `thunk_sequence` corresponds to
