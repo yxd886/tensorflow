@@ -58,7 +58,9 @@ class GpuCompiler : public LLVMCompiler {
   Status OptimizeHloModule(HloModule* hlo_module,
                            se::StreamExecutor* stream_exec,
                            se::DeviceMemoryAllocator* device_allocator);
-
+  Status MyOptimizeHloModule(HloModule* hlo_module,
+                           se::StreamExecutor* stream_exec,
+                           se::DeviceMemoryAllocator* device_allocator);
   virtual Status OptimizeHloConvolutionCanonicalization(
       HloModule* hlo_module, se::StreamExecutor* stream_exec,
       se::DeviceMemoryAllocator* device_allocator) = 0;

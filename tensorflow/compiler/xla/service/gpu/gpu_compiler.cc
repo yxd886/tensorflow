@@ -406,6 +406,52 @@ Status GpuCompiler::OptimizeHloModule(
 }
 
 
+
+
+// Runs optimization passes on the given HLO module.
+Status GpuCompiler::MyOptimizeHloModule(
+    HloModule* hlo_module, se::StreamExecutor* stream_exec,
+    se::DeviceMemoryAllocator* device_allocator) {
+
+	const char* tensor_fusion_char=std::getenv("TENSOR_FUSION_THRESHOLD");
+
+	int tensor_fusion_level=0;
+	std::stringstream tt(tensor_fusion_char);
+	tt >> tensor_fusion_level;
+	std::cout<<"tensor fusion threshold: "<<tensor_fusion_level<<std::endl;
+
+
+  {
+	//cout<<"In tensor fusion pass"<<endl;
+    HloPassPipeline pipeline("all_reduce_combiner");
+    pipeline.AddPass<AllReduceCombiner>(
+        /*combine_threshold_in_bytes=*/tensor_fusion_level * 1024 * 1024,
+       /*combine_threshold_count=*/1000000);
+    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+	////cout<<"out tensor fusion pass"<<endl;
+    MyDumpHloModuleIfEnabled(*hlo_module,
+                           "after_all_reduce_combiner");
+
+  }
+  {
+    // Now we allow to replace any transposes outside of fusions with bitcasts.
+	//cout<<"In final_algebraic_simplifier pass"<<endl;
+    HloPassPipeline pipeline("final_algebraic_simplifier");
+    AlgebraicSimplifierOptions options;
+    options.set_is_layout_sensitive(true);
+    options.set_enable_conv_operand_swap(false);
+    pipeline.AddPass<AlgebraicSimplifier>(options);
+    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+	//cout<<"out final_algebraic_simplifier pass"<<endl;
+
+  }
+  return Status::OK();
+}
+
+
+
+
+
 // Modifies the given HLO module so that it will be accepted by IrEmitter.
 // Unlike optimization passes, the passes are necessary for correctness.
 Status GpuCompiler::PrepareHloModuleForIrEmitting(HloModule* hlo_module) {
@@ -559,8 +605,13 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 	auto module_proto = hlo_proto.hlo_module();
 	DebugOptions debug_options;
 	TF_ASSIGN_OR_RETURN(auto module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
+	module_config.set_debug_options(module->config().debug_options());
+	std::cout<<"core xla_backend_optimization_level:"<<module_config.debug_options().xla_backend_optimization_level()<<std::endl;
 	TF_ASSIGN_OR_RETURN(module, HloModule::CreateFromProto(module_proto,module_config));
+	TF_RETURN_IF_ERROR(MyOptimizeHloModule(module.get(), stream_exec, device_allocator));
+
   }else{
+	  //std::cout<<"not core xla_backend_optimization_level:"<<module->config().debug_options().xla_backend_optimization_level()<<std::endl;
 	  TF_RETURN_IF_ERROR(
 	      OptimizeHloModule(module.get(), stream_exec, device_allocator));
   }
