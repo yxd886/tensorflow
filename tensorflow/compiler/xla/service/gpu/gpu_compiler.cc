@@ -129,7 +129,22 @@ using namespace std;
 namespace xla {
 namespace gpu {
 
+bool IsCoreModule(HloModule* hlo_module){
 
+	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	if(!core_id_char){
+		return false;
+	}
+	int core_id=0;
+	std::stringstream ss(core_id_char);
+	ss >> core_id;
+	if(core_id==hlo_module->unique_id()){
+		return true;
+	}else{
+		return false;
+	}
+
+}
 GpuCompiler::GpuCompiler(se::Platform::Id platform_id,
                          const char* target_triple, const char* data_layout)
     : platform_id_(platform_id),
@@ -300,6 +315,8 @@ Status GpuCompiler::OptimizeHloModule(
 	ss >> op_fusion_level;
 
 	std::cout<<"op fusion level: "<<op_fusion_level<<std::endl;
+	const char* search_flag=std::getenv("ENABLE_SEARCH");
+
   {
 	//cout<<"In op fusion pass"<<endl;
     HloPassFix<HloPassPipeline> fusion("fusion");
@@ -314,20 +331,28 @@ Status GpuCompiler::OptimizeHloModule(
         LayoutAssignment::InstructionCanChangeLayout);
     //fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/false);
 
-    if (op_fusion_level==1){ //only duplicate fusion
-        fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
-        //fusion.AddPass<FusionMerger>();
-    }else if(op_fusion_level==2){//only multioutput fusion
 
-        fusion.AddPass<FusionMerger>();
-        fusion.AddPass<GpuMultiOutputFusion>();
+    if(search_flag &&IsCoreModule(hlo_module)){//customized op fusion
+    	;
+    }else{//default op fusion
 
-    }else if (op_fusion_level==3){ // both duplicate and multioutput fusion
+        if (op_fusion_level==1){ //only duplicate fusion
+            fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
+            //fusion.AddPass<FusionMerger>();
+        }else if(op_fusion_level==2){//only multioutput fusion
 
-        fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
-        fusion.AddPass<FusionMerger>();
-        fusion.AddPass<GpuMultiOutputFusion>();
+            fusion.AddPass<FusionMerger>();
+            fusion.AddPass<GpuMultiOutputFusion>();
+
+        }else if (op_fusion_level==3){ // both duplicate and multioutput fusion
+
+            fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
+            fusion.AddPass<FusionMerger>();
+            fusion.AddPass<GpuMultiOutputFusion>();
+        }
+
     }
+
 
 
     fusion.AddPass<HloCSE>(/*is_layout_sensitive=*/true,
@@ -355,12 +380,22 @@ Status GpuCompiler::OptimizeHloModule(
 
   {
 	//cout<<"In tensor fusion pass"<<endl;
-    HloPassPipeline pipeline("all_reduce_combiner");
-    pipeline.AddPass<AllReduceCombiner>(
-        /*combine_threshold_in_bytes=*/tensor_fusion_level * 1024 * 1024,
-       /*combine_threshold_count=*/1000000);
-    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
-	////cout<<"out tensor fusion pass"<<endl;
+
+	if(search_flag &&IsCoreModule(hlo_module)){//customized tensor fusion
+		;
+	}else{ //default tensor fusion
+
+	    HloPassPipeline pipeline("all_reduce_combiner");
+	    pipeline.AddPass<AllReduceCombiner>(
+	        /*combine_threshold_in_bytes=*/tensor_fusion_level * 1024 * 1024,
+	       /*combine_threshold_count=*/1000000);
+	    TF_RETURN_IF_ERROR(pipeline.Run(hlo_module).status());
+		////cout<<"out tensor fusion pass"<<endl;
+	}
+
+
+
+
     MyDumpHloModuleIfEnabled(*hlo_module,
                            "after_all_reduce_combiner");
 
