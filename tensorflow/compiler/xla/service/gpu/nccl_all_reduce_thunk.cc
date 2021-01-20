@@ -326,7 +326,7 @@ class NcclClique {
     MPI_Bcast(&nccl_id, sizeof(nccl_id), MPI_BYTE, 0, MPI_COMM_WORLD);
     std::vector<ncclComm_t> raw_comms(local_device_ordinals_.size(), nullptr);
 
-    MPI_Finalize();
+    //MPI_Finalize();
 
     // When using ncclGroupStart/End it seems that the ncclComm_t's are not
     // populated until the End() call.  This unfortunately makes error handling

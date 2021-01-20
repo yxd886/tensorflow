@@ -19,6 +19,7 @@ limitations under the License.
 #include <string>
 #include <utility>
 #include <vector>
+#include <mpi.h>
 
 
 #include <fstream>
@@ -837,12 +838,39 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
   std::unique_ptr<HloModule> module;
   if(IsCoreModule()){
 
-	std::cout<<"service find core module."<<std::endl;
-	std::cout<<"module unique id:"<<HloModule::next_unique_module_id_<<std::endl;
-
+	//MPI_Init(nullptr, nullptr);
+	int nProcs = 1, proc = 2;
+	int localRank = 0;
+	MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+	MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 	HloProto hlo_proto;
-	fstream input("results/result.pb", ios::in | ios::binary);
-	hlo_proto.ParseFromIstream(&input);
+
+	int size = 0;
+
+	if(proc==0){
+		std::cout<<"service find core module."<<std::endl;
+		std::cout<<"module unique id:"<<HloModule::next_unique_module_id_<<std::endl;
+
+		fstream input("results/result.pb", ios::in | ios::binary);
+		hlo_proto.ParseFromIstream(&input);
+		size = hlo_proto.ByteSizeLong();
+		std::cout<<"size:"<<size<<std::endl;
+		MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
+		std::string send_str;
+		hlo_proto.SerializeToString(&send_str);
+	    MPI_Bcast((void*)send_str.c_str(), size, MPI_BYTE, 0, MPI_COMM_WORLD);
+
+	}else{
+		MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);
+		std::cout<<"size:"<<size<<std::endl;
+		char* recv = (char*)malloc(size);
+		MPI_Bcast(recv, size, MPI_BYTE, 0, MPI_COMM_WORLD);
+		std::string recv_str(recv,size);
+		hlo_proto.ParseFromString(recv_str);
+	}
+    MPI_Finalize();
+
+
 	auto module_proto = hlo_proto.hlo_module();
 	//DebugOptions debug_options;
 	//TF_ASSIGN_OR_RETURN(auto _module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
