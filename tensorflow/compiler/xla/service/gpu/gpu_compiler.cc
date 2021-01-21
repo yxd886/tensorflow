@@ -125,6 +125,9 @@ limitations under the License.
 #include "tensorflow/core/profiler/lib/traceme.h"
 #include "tensorflow/core/util/env_var.h"
 
+#include "tensorflow/compiler/xla/service/gpu/my_instruction_fusion.h"
+
+
 using namespace std;
 namespace xla {
 namespace gpu {
@@ -333,7 +336,8 @@ Status GpuCompiler::OptimizeHloModule(
 
 
     if(search_flag &&IsCoreModule(hlo_module)){//customized op fusion
-    	;
+        fusion.AddPass<MyGpuInstructionFusion>(/*may_duplicate=*/true);
+
     }else{//default op fusion
 
         if (op_fusion_level==1){ //only duplicate fusion

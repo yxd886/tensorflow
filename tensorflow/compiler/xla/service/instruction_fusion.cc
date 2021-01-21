@@ -884,4 +884,5 @@ bool InstructionFusion::ReusesOperandElements(const HloInstruction* consumer,
   return reuses;
 }
 
+
 }  // namespace xla

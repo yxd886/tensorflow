@@ -39,7 +39,7 @@ class GpuMultiOutputFusion : public HloModulePass {
 
   StatusOr<bool> Run(HloModule* module) override;
 
- private:
+ //private:
   bool FuseSiblings(HloInstruction* parent);
 
   bool DoMultiOutputFusion();

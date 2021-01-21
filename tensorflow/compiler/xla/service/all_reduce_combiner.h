@@ -38,7 +38,7 @@ class AllReduceCombiner : public HloModulePass {
 
   StatusOr<bool> Run(HloModule* module) override;
 
- private:
+ //private:
   // Combine all reduce ops up to this threshold.
   int64 combine_threshold_in_bytes_;
 

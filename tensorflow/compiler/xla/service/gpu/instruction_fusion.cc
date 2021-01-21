@@ -153,6 +153,5 @@ HloInstruction* GpuInstructionFusion::FuseInstruction(
   evaluation->second.UpdateEvaluationCache(new_producer, indexing_users);
   return new_producer;
 }
-
 }  // namespace gpu
 }  // namespace xla

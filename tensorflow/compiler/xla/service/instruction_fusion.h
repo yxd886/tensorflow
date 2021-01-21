@@ -148,7 +148,7 @@ class InstructionFusion : public HloModulePass {
   bool ReusesOperandElements(const HloInstruction* consumer,
                              int64 operand_index);
 
- private:
+ //private:
   // The set of producers whose consumers we cannot fuse into.
   using HloInstructionSet = std::unordered_set<HloInstruction*>;
 
@@ -189,6 +189,7 @@ class InstructionFusion : public HloModulePass {
 
   TF_DISALLOW_COPY_AND_ASSIGN(InstructionFusion);
 };
+
 
 }  // namespace xla
 
