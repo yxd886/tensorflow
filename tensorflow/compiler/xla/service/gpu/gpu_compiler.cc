@@ -134,7 +134,7 @@ namespace gpu {
 
 bool IsCoreModule(HloModule* hlo_module){
 
-	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	const char* core_id_char=std::getenv("CORE_MODULE_ID");
 	if(!core_id_char){
 		return false;
 	}
