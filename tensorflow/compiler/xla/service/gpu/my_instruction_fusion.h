@@ -31,6 +31,8 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
 
   bool ShouldFuseIntoMultiOutput(HloInstruction* consumer,
                                  int64 operand_index) override;
+  std::unique_ptr<FusionQueue> GetRandomFusionQueue(
+      HloComputation* computation);
 
   HloInstruction::FusionKind ChooseKind(
       const HloInstruction* producer, const HloInstruction* consumer) override;
@@ -49,6 +51,13 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
   // indexed with different index vectors.
   absl::flat_hash_map<const HloInstruction*, FusionNodeIndexingEvaluation>
       fusion_node_evaluations_;
+
+  std::vector<HloInstruction*> instruction_list_;
+  std::vector<HloComputation*> computation_list_;
+
+
+
+
   GpuMultiOutputFusion multi_output_fuser_;
   AllReduceCombiner all_reduce_combiner_;
 

@@ -48,6 +48,7 @@ limitations under the License.
 
 
 #include <iostream>
+#include <experimental/random>
 
 namespace xla {
 namespace gpu {
@@ -66,9 +67,9 @@ bool ElementIsF32OrF16(const Shape& shape) {
 // possible, create vector of instructions in post order and create a map from
 // HloInstruction* to the instruction's index in the vector. An instruction is
 // "removed" from the vector by setting it's element to nullptr.
-class ReversePostOrderFusionQueue : public FusionQueue {
+class RandomFusionQueue : public FusionQueue {
  public:
-  explicit ReversePostOrderFusionQueue(HloComputation* computation) {
+  explicit RandomFusionQueue(HloComputation* computation) {
     post_order_ = computation->MakeInstructionPostOrder();
 
     for (size_t i = 0; i < post_order_.size(); ++i) {
@@ -81,16 +82,20 @@ class ReversePostOrderFusionQueue : public FusionQueue {
     // Instructions are "removed" from the post order by nulling out the element
     // in the vector, so if the pointer is null, continue to the next
     // instruction in the sort.
-    while (!post_order_.empty() && post_order_.back() == nullptr) {
-      post_order_.pop_back();
+	if (post_order_.empty()) {
+	  return std::pair<HloInstruction*, std::vector<int64>>{nullptr, {}};
+	}
+	int random_number = std::experimental::randint(0, int(post_order_.size()));
+    while (!post_order_.empty() && post_order_[random_number] == nullptr) {
+      post_order_.erase(post_order_.begin()+random_number);
     }
     if (post_order_.empty()) {
       return std::pair<HloInstruction*, std::vector<int64>>{nullptr, {}};
     }
     // We want to iterate in reverse post order, so remove from the back of the
     // vector.
-    HloInstruction* instruction = post_order_.back();
-    post_order_.pop_back();
+    HloInstruction* instruction = post_order_[random_number];
+    post_order_.erase(post_order_.begin()+random_number);
 
     CHECK(instruction != nullptr);
     // Remove instruction from the index map to ensure the vector and map stay
@@ -211,6 +216,12 @@ class ReversePostOrderFusionQueue : public FusionQueue {
   return InstructionFusion::IsExpensive(instruction);
 }
 
+std::unique_ptr<FusionQueue> MyGpuInstructionFusion::GetRandomFusionQueue(
+    HloComputation* computation){
+	  return absl::make_unique<RandomFusionQueue>(computation);
+
+}
+
 bool MyGpuInstructionFusion::ShouldFuseInexpensiveChecks(HloInstruction* consumer,
                                                        int64 operand_index) {
   HloInstruction* producer = consumer->mutable_operand(operand_index);
@@ -321,12 +332,6 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
   module_ = module;
   int64 fuse_count = 0;
   std::vector<std::vector<bool>>* fusion_config = nullptr;
-  HloModuleConfig module_config;
-  if (config_collection_mode_ != FusionConfigCollection::kOff) {
-    module_config = module->config();
-    fusion_config = module_config.mutable_fusion_config();
-    fusion_config->clear();
-  }
 
   // Use sorted computations because fusion configuration is order-sensitive.
   for (auto* computation : module->MakeNonfusionComputationsSorted()) {
@@ -347,7 +352,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
     // (producer instruction -> consumer instruction) so we iterate over all
     // edges. When we fuse an edge, we create a copy of the producer inside the
     // fusion instruction.
-    while (true) {
+    for (int64 random_times=0;random_times<50;random_times++) {
       auto next_entry =
           fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
       HloInstruction* instruction = next_entry.first;
@@ -430,37 +435,12 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
       }
     }
 
-    if (config_collection_mode_ != FusionConfigCollection::kOff) {
-      const std::vector<bool>* comp_fusion_config =
-          fusion_queue->FusionConfiguration();
-      if (comp_fusion_config && !comp_fusion_config->empty()) {
-        fusion_config->push_back(*comp_fusion_config);
-      }
-    }
   }
-
-  if (config_collection_mode_ != FusionConfigCollection::kOff) {
-    int64 fused_count = 0;
-    for (auto& config_per_computation : *fusion_config) {
-      for (auto edge : config_per_computation) {
-        if (edge) {
-          ++fused_count;
-        }
-      }
-    }
-    VLOG(1) << "There are " << fused_count << " fused bits that cause "
-            << fuse_count << " fusion actions.";
-    VLOG(1) << FusionConfigToString(*fusion_config);
-    module->set_config(module_config);
-  }
-
   reachability_.reset();
 
-  VLOG(1) << "Fusion count: " << fuse_count;
+  std::cout << "Fusion count: " << fuse_count<<std::endl;
 
   return changed;
-
-
 
 
 }

@@ -836,7 +836,8 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
       module_proto.name());
   //std::string A = "pmap__multi_device_update_fn__1.52901";
   std::unique_ptr<HloModule> module;
-  if(IsCoreModule()){
+  const char* search_flag=std::getenv("ENABLE_SEARCH");
+  if(!search_flag&&IsCoreModule()){  //if is not search, means it is normally activate already optimized module
 
 	//MPI_Init(nullptr, nullptr);
 	int nProcs = 1, proc = 2;
@@ -879,15 +880,15 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 	TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(module_proto,*module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
 
-}else{
+  }else{
 	  TF_ASSIGN_OR_RETURN(module,
-	                      CreateModuleFromProto(module_proto, *module_config));
+						  CreateModuleFromProto(module_proto, *module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
 
 	  TF_ASSIGN_OR_RETURN(
-	      module, backend->compiler()->RunHloPasses(std::move(module), executor,
-	                                                device_allocator));
-}
+		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
+													device_allocator));
+  }
 
 
 
