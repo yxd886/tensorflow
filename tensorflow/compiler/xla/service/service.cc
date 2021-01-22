@@ -813,7 +813,7 @@ Status Service::GetDeviceHandles(const GetDeviceHandlesRequest* arg,
 
 bool IsCoreModule(){
 
-	const char* core_id_char=std::getenv("CORE_MOUDLE_ID");
+	const char* core_id_char=std::getenv("CORE_MODULE_ID");
 	if(!core_id_char){
 		return false;
 	}
@@ -831,56 +831,87 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
     const HloModuleProto& module_proto,
     std::unique_ptr<HloModuleConfig> module_config, Backend* backend,
     se::StreamExecutor* executor, se::DeviceMemoryAllocator* device_allocator) {
-  VLOG(1) << StrFormat(
-      "BuildExecutable on service %p with serialized module proto: %s", this,
-      module_proto.name());
-  //std::string A = "pmap__multi_device_update_fn__1.52901";
-  std::unique_ptr<HloModule> module;
-  const char* search_flag=std::getenv("ENABLE_SEARCH");
-  if(!search_flag&&IsCoreModule()){  //if is not search, means it is normally activate already optimized module
-
-	//MPI_Init(nullptr, nullptr);
+	VLOG(1) << StrFormat(
+	  "BuildExecutable on service %p with serialized module proto: %s", this,
+	  module_proto.name());
+	//std::string A = "pmap__multi_device_update_fn__1.52901";
+	std::unique_ptr<HloModule> module;
+	const char* search_flag=std::getenv("ENABLE_SEARCH");
 	int nProcs = 1, proc = 2;
 	int localRank = 0;
-	MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 	HloProto hlo_proto;
-
 	int size = 0;
+	if(IsCoreModule()&&!search_flag){
+	 //if is not search, means it is normally activate already optimized module
+			//MPI_Init(nullptr, nullptr);
+		MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 
-	if(proc==0){
-		std::cout<<"service find core module."<<std::endl;
-		std::cout<<"module unique id:"<<HloModule::next_unique_module_id_<<std::endl;
+		if(proc==0){
+			std::cout<<"service find core module."<<std::endl;
+			std::cout<<"module unique id:"<<HloModule::next_unique_module_id_<<std::endl;
 
-		fstream input("results/result.pb", ios::in | ios::binary);
-		hlo_proto.ParseFromIstream(&input);
-		size = hlo_proto.ByteSizeLong();
-		std::cout<<"size:"<<size<<std::endl;
-		MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
-		std::string send_str;
-		hlo_proto.SerializeToString(&send_str);
-	    MPI_Bcast((void*)send_str.c_str(), size, MPI_BYTE, 0, MPI_COMM_WORLD);
+			fstream input("results/result.pb", ios::in | ios::binary);
+			hlo_proto.ParseFromIstream(&input);
+			size = hlo_proto.ByteSizeLong();
+			std::cout<<"size:"<<size<<std::endl;
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
+			std::string send_str;
+			hlo_proto.SerializeToString(&send_str);
+			MPI_Bcast((void*)send_str.c_str(), size, MPI_BYTE, 0, MPI_COMM_WORLD);
 
-	}else{
-		MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);
-		std::cout<<"size:"<<size<<std::endl;
-		char* recv = (char*)malloc(size);
-		MPI_Bcast(recv, size, MPI_BYTE, 0, MPI_COMM_WORLD);
-		std::string recv_str(recv,size);
-		hlo_proto.ParseFromString(recv_str);
-	}
-    MPI_Finalize();
+		}else{
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::cout<<"size:"<<size<<std::endl;
+			char* recv = (char*)malloc(size);
+			MPI_Bcast(recv, size, MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::string recv_str(recv,size);
+			hlo_proto.ParseFromString(recv_str);
+		}
+		MPI_Finalize();
+
+		auto my_module_proto = hlo_proto.hlo_module();
+		TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(my_module_proto,*module_config));
+		  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+  }/*else if (IsCoreModule()&&search_flag){
+
+		MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
+		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+	  if(proc==0){
+			TF_ASSIGN_OR_RETURN(module,
+							  CreateModuleFromProto(module_proto, *module_config));
+			DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+			TF_ASSIGN_OR_RETURN(
+			  module, backend->compiler()->RunHloPasses(std::move(module), executor,
+														device_allocator));
+			auto send_module_proto = module->ToProto();
+			size = send_module_proto.ByteSizeLong();
+			std::cout<<"size:"<<size<<std::endl;
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
+			std::string send_str;
+			send_module_proto.SerializeToString(&send_str);
+			MPI_Bcast((void*)send_str.c_str(), size, MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::cout<<"sent success:"<<size<<std::endl;
+
+	  }else{
+		    HloModuleProto send_module_proto;
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::cout<<"size:"<<size<<std::endl;
+			char* recv = (char*)malloc(size);
+			MPI_Bcast(recv, size, MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::cout<<"recv success:"<<size<<std::endl;
+			std::string recv_str(recv,size);
+			send_module_proto.ParseFromString(recv_str);
+			TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(send_module_proto,*module_config));
+
+	  }
+	  MPI_Finalize();
 
 
-	auto module_proto = hlo_proto.hlo_module();
-	//DebugOptions debug_options;
-	//TF_ASSIGN_OR_RETURN(auto _module_config, HloModule::CreateModuleConfigFromProto(module_proto,debug_options));
-	//_module_config.set_debug_options(module_config->debug_options());
-	//_module_config.set_replica_count(2);
-	TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(module_proto,*module_config));
-	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
 
-  }else{
+  }*/else { // it is not core module
 	  TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
@@ -888,6 +919,9 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 	  TF_ASSIGN_OR_RETURN(
 		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
 													device_allocator));
+
+
+
   }
 
 
@@ -899,14 +933,6 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		  .set_print_program_shape(false)
 		  .set_indent_amount(2)
 		  .set_print_extra_attributes(false);
-
-  ////cout << "Writing to the file" << endl;
-  //ofstream outfile;
-  //outfile.open("hlo_modules/"+module->name()+".log");
-  //outfile << module->ToString(opts) << endl;
-  //outfile.close();
-
-  ////cout << "Before RunBackend" << endl;
   auto new_module_proto = module->ToProto();
 
   TF_ASSIGN_OR_RETURN(std::unique_ptr<Executable> executable,

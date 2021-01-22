@@ -44,6 +44,7 @@ limitations under the License.
 #include "tensorflow/compiler/xla/service/pattern_matcher.h"
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/platform/logging.h"
+#include <mpi.h>
 
 
 
@@ -75,6 +76,16 @@ class RandomFusionQueue : public FusionQueue {
     for (size_t i = 0; i < post_order_.size(); ++i) {
       InsertOrDie(&post_order_index_, post_order_[i], i);
     }
+	MPI_Comm_rank(MPI_COMM_WORLD, &proc_);
+	const char* produce_sample=std::getenv("PRODUCE_SAMPLE");
+	if (produce_sample){
+		produce_sample_=true;
+	}else{
+		produce_sample_=false;
+
+	}
+
+
   }
 
   std::pair<HloInstruction*, std::vector<int64>>
@@ -85,7 +96,23 @@ class RandomFusionQueue : public FusionQueue {
 	if (post_order_.empty()) {
 	  return std::pair<HloInstruction*, std::vector<int64>>{nullptr, {}};
 	}
-	int random_number = std::experimental::randint(0, int(post_order_.size()));
+
+	int random_number=0;
+	if(!produce_sample_){
+		random_number= std::experimental::randint(0, int(post_order_.size())-1);
+
+	}else{
+		if (proc_==0){
+			random_number= std::experimental::randint(0, int(post_order_.size())-1);
+			//std::cout<<"random_number: "<<random_number<<std::endl;
+			MPI_Bcast(&random_number, sizeof(random_number), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+		}else{
+			MPI_Bcast(&random_number, sizeof(random_number), MPI_BYTE, 0, MPI_COMM_WORLD);
+
+		}
+	}
+
     while (!post_order_.empty() && post_order_[random_number] == nullptr) {
       post_order_.erase(post_order_.begin()+random_number);
     }
@@ -186,6 +213,8 @@ class RandomFusionQueue : public FusionQueue {
   std::vector<HloInstruction*> post_order_;
   absl::flat_hash_map<HloInstruction*, int> post_order_index_;
   std::vector<bool> fusion_config_;
+  int proc_;
+  bool produce_sample_;
 };
 
 
@@ -346,13 +375,13 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
     do_not_duplicate =
           ComputeGloballyUnfusible(computation_->MakeInstructionPostOrder());
 
-    auto fusion_queue = GetFusionQueue(computation_);
+    auto fusion_queue = GetRandomFusionQueue(computation_);
 
     // Instruction fusion effectively fuses edges in the computation graph
     // (producer instruction -> consumer instruction) so we iterate over all
     // edges. When we fuse an edge, we create a copy of the producer inside the
     // fusion instruction.
-    for (int64 random_times=0;random_times<50;random_times++) {
+    for (int64 random_times=0;random_times<500;random_times++) {
       auto next_entry =
           fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
       HloInstruction* instruction = next_entry.first;
@@ -402,12 +431,6 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
           if (consume_fuel()) {
             fusion_queue->PreFusion(operand, instruction);
             fusion_instruction = Fuse(operand, instruction);
-          }
-        } else if (!may_duplicate_&&ShouldFuse(instruction, i) &&
-                   !MultiOutputFusionCreatesCycle(operand, instruction)) {
-          if (consume_fuel()) {
-            fusion_queue->PreFusion(operand, instruction);
-            fusion_instruction = FuseIntoMultiOutput(operand, instruction);
           }
         }
 
