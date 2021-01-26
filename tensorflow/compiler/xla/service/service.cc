@@ -874,8 +874,21 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(my_module_proto,*module_config));
 		  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
 
-  }/*else if (IsCoreModule()&&search_flag){
+  }else if (IsCoreModule()&&search_flag){
 
+	  TF_ASSIGN_OR_RETURN(module,
+						  CreateModuleFromProto(module_proto, *module_config));
+	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+	  TF_ASSIGN_OR_RETURN(
+		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
+													device_allocator));
+		auto my_hlo_proto = absl::make_unique<HloProto>();
+		*my_hlo_proto->mutable_hlo_module() = module->ToProto();
+	    fstream output("results/result.pb", ios::out | ios::trunc | ios::binary);
+	    my_hlo_proto->SerializeToOstream(&output);
+	    std::cout<<"dump success"<<std::endl;
+
+	  	 /*
 		MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
 		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 	  if(proc==0){
@@ -908,10 +921,11 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
 	  }
 	  MPI_Finalize();
+	  */
 
 
 
-  }*/else { // it is not core module
+  }else { // it is not core module
 	  TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);

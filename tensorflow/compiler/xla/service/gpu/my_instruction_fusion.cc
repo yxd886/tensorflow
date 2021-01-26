@@ -99,11 +99,12 @@ class RandomFusionQueue : public FusionQueue {
 
 	int random_number=0;
 	if(!produce_sample_){
-		random_number= std::experimental::randint(0, int(post_order_.size()));
+		random_number= std::experimental::randint(0, int(post_order_.size())-1);
 
 	}else{
 		if (proc_==0){
-			random_number= std::experimental::randint(0, int(post_order_.size()));
+			random_number= std::experimental::randint(0, int(post_order_.size())-1);
+			//std::cout<<"random_number: "<<random_number<<std::endl;
 			MPI_Bcast(&random_number, sizeof(random_number), MPI_BYTE, 0, MPI_COMM_WORLD);
 
 		}else{
@@ -380,7 +381,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
     // (producer instruction -> consumer instruction) so we iterate over all
     // edges. When we fuse an edge, we create a copy of the producer inside the
     // fusion instruction.
-    for (int64 random_times=0;random_times<50;random_times++) {
+    for (int64 random_times=0;random_times<500;random_times++) {
       auto next_entry =
           fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
       HloInstruction* instruction = next_entry.first;

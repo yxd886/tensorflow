@@ -665,7 +665,7 @@ static Status CompileModuleToLlvmIrImpl(
                          "after_optimizations");
   const char* search_flag=std::getenv("ENABLE_SEARCH");
   if (IsCoreModule(hlo_module)&& search_flag){
-	  MyDumpHloModuleIfEnabled(*hlo_module, **buffer_assignment,
+	  MyDumpHloModuleIfEnabled(*hlo_module,
 	                         "after_search");
 	  std::cout<<"search finish!"<<std::endl;
 	  exit(0);
