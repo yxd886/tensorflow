@@ -820,7 +820,7 @@ bool IsCoreModule(){
 	int core_id=0;
 	std::stringstream ss(core_id_char);
 	ss >> core_id;
-	if(core_id==HloModule::next_unique_module_id_){
+	if(core_id<=HloModule::next_unique_module_id_){
 		return true;
 	}else{
 		return false;

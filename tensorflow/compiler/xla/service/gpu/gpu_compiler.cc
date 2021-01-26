@@ -24,7 +24,7 @@ limitations under the License.
 #include <utility>
 #include <iostream>
 #include <fstream>
-
+#include <cstdlib>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/numbers.h"
@@ -141,7 +141,7 @@ bool IsCoreModule(HloModule* hlo_module){
 	int core_id=0;
 	std::stringstream ss(core_id_char);
 	ss >> core_id;
-	if(core_id==hlo_module->unique_id()){
+	if(core_id<=hlo_module->unique_id()){
 		return true;
 	}else{
 		return false;
@@ -663,6 +663,14 @@ static Status CompileModuleToLlvmIrImpl(
           << (*buffer_assignment)->GetStats().ToString();
   DumpHloModuleIfEnabled(*hlo_module, **buffer_assignment,
                          "after_optimizations");
+  const char* search_flag=std::getenv("ENABLE_SEARCH");
+  if (IsCoreModule(hlo_module)&& search_flag){
+	  MyDumpHloModuleIfEnabled(*hlo_module, **buffer_assignment,
+	                         "after_search");
+	  std::cout<<"search finish!"<<std::endl;
+	  exit(0);
+
+  }
 
   mlir::MLIRContext mlir_context;
 
