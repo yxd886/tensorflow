@@ -212,9 +212,11 @@ class RandomFusionQueue : public FusionQueue {
  private:
   std::vector<HloInstruction*> post_order_;
   absl::flat_hash_map<HloInstruction*, int> post_order_index_;
-  std::vector<bool> fusion_config_;
+
   int proc_;
   bool produce_sample_;
+  std::vector<bool> fusion_config_;
+
 };
 
 
@@ -245,9 +247,29 @@ class RandomFusionQueue : public FusionQueue {
   return InstructionFusion::IsExpensive(instruction);
 }
 
-std::unique_ptr<FusionQueue> MyGpuInstructionFusion::GetRandomFusionQueue(
+
+
+std::shared_ptr<FusionQueue> MyGpuInstructionFusion::GetRandomFusionQueue(
     HloComputation* computation){
-	  return absl::make_unique<RandomFusionQueue>(computation);
+
+
+	auto res = randomFusionQueue_map_.find(computation);
+	if (res==randomFusionQueue_map_.end()){
+
+		auto emplace_res = randomFusionQueue_map_.emplace(computation,std::make_shared<RandomFusionQueue>(computation));
+		/*if(!emplace_res.second){
+			std::cout<<"emplace fail, already exist"<<std::endl;
+		}else{
+			std::cout<<"emplace success"<<std::endl;
+
+		}*/
+		res = emplace_res.first;
+	}
+
+	return res->second;
+
+	//return std::make_shared<RandomFusionQueue>(computation);
+
 
 }
 
@@ -351,6 +373,27 @@ HloInstruction* MyGpuInstructionFusion::FuseInstruction(
 }
 
 
+
+
+StatusOr<bool> MyGpuInstructionFusion::RandomFuseOnce(){
+	bool changed = false;
+	int random_number= std::experimental::randint(0, int(computation_list_.size())-1);
+	computation_ = computation_list_[random_number];
+    reachability_ = HloReachabilityMap::Build(computation_);
+    HloInstructionSet do_not_duplicate;
+    // If we allow duplications, we need to compute which instructions we do not
+    // want to duplicate based on a global analysis of the graph.
+
+    do_not_duplicate =do_not_duplicate_map_.find(computation_)->second;
+    auto fusion_queue = GetRandomFusionQueue(computation_);
+    return true;
+
+
+
+}
+
+
+
 StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
   fusion_node_evaluations_.clear();
   //TF_RETURN_IF_ERROR(InstructionFusion::Run(module).status());
@@ -360,7 +403,23 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
   bool changed = false;
   module_ = module;
   int64 fuse_count = 0;
-  std::vector<std::vector<bool>>* fusion_config = nullptr;
+  std::cout<<"0000000000000000000"<<std::endl;
+
+  computation_list_ = module->MakeNonfusionComputationsSorted();
+  std::cout<<"111111111111111111"<<std::endl;
+
+
+  for (auto* computation : module->MakeNonfusionComputationsSorted()) {
+	computation_ = computation;
+	reachability_ = HloReachabilityMap::Build(computation_);
+	HloInstructionSet do_not_duplicate;
+	do_not_duplicate = ComputeGloballyUnfusible(computation->MakeInstructionPostOrder());
+	do_not_duplicate_map_.emplace(computation,do_not_duplicate);
+	reachability_map_.emplace(computation,reachability_);
+
+  }
+  std::cout<<"2222222222222222222222"<<std::endl;
+
 
   // Use sorted computations because fusion configuration is order-sensitive.
   for (auto* computation : module->MakeNonfusionComputationsSorted()) {
@@ -377,6 +436,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
     auto fusion_queue = GetRandomFusionQueue(computation_);
 
+
     // Instruction fusion effectively fuses edges in the computation graph
     // (producer instruction -> consumer instruction) so we iterate over all
     // edges. When we fuse an edge, we create a copy of the producer inside the
@@ -384,6 +444,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
     for (int64 random_times=0;random_times<500;random_times++) {
       auto next_entry =
           fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
+
       HloInstruction* instruction = next_entry.first;
       if (instruction == nullptr) {
         break;
@@ -460,6 +521,10 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
   }
   reachability_.reset();
+  do_not_duplicate_map_.clear();
+  randomFusionQueue_map_.clear();
+  reachability_map_.clear();
+
 
   std::cout << "Fusion count: " << fuse_count<<std::endl;
 

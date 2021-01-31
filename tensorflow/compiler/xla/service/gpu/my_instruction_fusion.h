@@ -13,6 +13,7 @@
 #include "tensorflow/compiler/xla/service/hlo_instruction.h"
 #include "tensorflow/compiler/xla/service/gpu/multi_output_fusion.h"
 #include "tensorflow/compiler/xla/service/gpu/instruction_fusion.h"
+#include "tensorflow/compiler/xla/service/fusion_queue.h"
 
 #include "tensorflow/compiler/xla/service/all_reduce_combiner.h"
 
@@ -23,7 +24,9 @@ namespace gpu {
 class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOutputFusion,public AllReduceCombiner {
  public:
   explicit MyGpuInstructionFusion(bool may_duplicate)
-      : GpuInstructionFusion(may_duplicate),multi_output_fuser_(GpuMultiOutputFusion()),all_reduce_combiner_(AllReduceCombiner(0,0)){}//,GpuMultiOutputFusion(),AllReduceCombiner(0,0) {}
+      : GpuInstructionFusion(may_duplicate),multi_output_fuser_(GpuMultiOutputFusion()),all_reduce_combiner_(AllReduceCombiner(0,0)){
+
+  }//,GpuMultiOutputFusion(),AllReduceCombiner(0,0) {}
 
   static bool IsExpensive(const HloInstruction& instruction);
 
@@ -31,8 +34,10 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
 
   bool ShouldFuseIntoMultiOutput(HloInstruction* consumer,
                                  int64 operand_index) override;
-  std::unique_ptr<FusionQueue> GetRandomFusionQueue(
+  std::shared_ptr<FusionQueue> GetRandomFusionQueue(
       HloComputation* computation);
+
+  StatusOr<bool> RandomFuseOnce();
 
   HloInstruction::FusionKind ChooseKind(
       const HloInstruction* producer, const HloInstruction* consumer) override;
@@ -51,6 +56,11 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
   // indexed with different index vectors.
   absl::flat_hash_map<const HloInstruction*, FusionNodeIndexingEvaluation>
       fusion_node_evaluations_;
+
+  absl::flat_hash_map<HloComputation*, std::shared_ptr<FusionQueue>> randomFusionQueue_map_;
+  absl::flat_hash_map<HloComputation*, std::shared_ptr<HloReachabilityMap>> reachability_map_;
+  absl::flat_hash_map<HloComputation*, HloInstructionSet> do_not_duplicate_map_;
+
 
   std::vector<HloInstruction*> instruction_list_;
   std::vector<HloComputation*> computation_list_;

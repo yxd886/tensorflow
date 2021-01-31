@@ -64,6 +64,9 @@ limitations under the License.
 #include "tensorflow/core/util/ptr_util.h"
 #include "tensorflow/stream_executor/device_memory_allocator.h"
 
+#include "tensorflow/compiler/xla/service/gpu/my_instruction_fusion.h"
+
+
 using namespace std;
 namespace xla {
 namespace {
@@ -879,6 +882,13 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 	  TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+
+	  //customized fusion logic
+	  auto my_instruction_fusion = absl::make_unique<MyGpuInstructionFusion>(true);
+	  my_instruction_fusion.Run(module.get());
+
+
 	  TF_ASSIGN_OR_RETURN(
 		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
 													device_allocator));
