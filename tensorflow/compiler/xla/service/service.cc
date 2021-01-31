@@ -65,6 +65,7 @@ limitations under the License.
 #include "tensorflow/stream_executor/device_memory_allocator.h"
 
 #include "tensorflow/compiler/xla/service/gpu/my_instruction_fusion.h"
+#include "tensorflow/compiler/xla/service/hlo_pass_pipeline.h"
 
 
 using namespace std;
@@ -879,24 +880,23 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
   }else if (IsCoreModule()&&search_flag){
 
-	  TF_ASSIGN_OR_RETURN(module,
+		TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
-	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+		DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
 
 
-	  //customized fusion logic
-	  auto my_instruction_fusion = absl::make_unique<MyGpuInstructionFusion>(true);
-	  my_instruction_fusion.Run(module.get());
 
 
-	  TF_ASSIGN_OR_RETURN(
+		TF_ASSIGN_OR_RETURN(
 		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
 													device_allocator));
+
+
 		auto my_hlo_proto = absl::make_unique<HloProto>();
 		*my_hlo_proto->mutable_hlo_module() = module->ToProto();
-	    fstream output("results/result.pb", ios::out | ios::trunc | ios::binary);
-	    my_hlo_proto->SerializeToOstream(&output);
-	    std::cout<<"dump success"<<std::endl;
+		fstream output("results/result.pb", ios::out | ios::trunc | ios::binary);
+		my_hlo_proto->SerializeToOstream(&output);
+		std::cout<<"dump success"<<std::endl;
 
 	  	 /*
 		MPI_Comm_size(MPI_COMM_WORLD, &nProcs);

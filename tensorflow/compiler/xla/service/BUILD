@@ -936,6 +936,7 @@ cc_library(
         ":source_map_util",
         ":stream_pool",
         ":transfer_manager",
+        ":hlo_pass_pipeline",
         "//tensorflow/compiler/xla:debug_options_flags",
         "//tensorflow/compiler/xla:executable_run_options",
         "//tensorflow/compiler/xla:execution_options_util",
@@ -957,6 +958,7 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
         "@openmpi//:openmpi-lib",
+        "//tensorflow/compiler/xla/service/gpu:my_instruction_fusion"
         
     ],
     alwayslink = 1,

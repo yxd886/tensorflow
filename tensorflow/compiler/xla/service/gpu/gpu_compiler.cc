@@ -336,7 +336,7 @@ Status GpuCompiler::OptimizeHloModule(
 
 
     if(search_flag &&IsCoreModule(hlo_module)){//customized op fusion
-        fusion.AddPass<MyGpuInstructionFusion>(/*may_duplicate=*/true);
+        ;//fusion.AddPass<MyGpuInstructionFusion>(/*may_duplicate=*/true);
 
     }else{//default op fusion
 
@@ -610,6 +610,28 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 
   TF_RETURN_IF_ERROR(
 	  OptimizeHloModule(module.get(), stream_exec, device_allocator));
+
+
+
+	const char* search_flag=std::getenv("ENABLE_SEARCH");
+
+	if(search_flag &&IsCoreModule(module.get())){//customized tensor fusion
+
+		auto my_instruction_fusion = absl::make_unique<xla::gpu::MyGpuInstructionFusion>(true);
+		for (int i=0;i<10;i++){
+			my_instruction_fusion->Run(module.get());
+			//module->Cleanup();
+
+		}
+	}
+
+	//customized fusion logic
+
+
+
+
+
+
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
   //cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
 
