@@ -46,7 +46,7 @@ limitations under the License.
 #include "tensorflow/core/platform/logging.h"
 #include <mpi.h>
 
-
+#include <curl/curl.h>
 
 #include <iostream>
 #include <experimental/random>
@@ -58,6 +58,54 @@ namespace {
 bool ElementIsF32OrF16(const Shape& shape) {
   PrimitiveType type = shape.element_type();
   return type == F32 || type == F16;
+}
+
+
+bool GetEstimation(HloModule* module_) {
+	CURL *curl;
+	CURLcode res;
+
+	/* In windows, this will init the winsock stuff */
+	curl_global_init(CURL_GLOBAL_ALL);
+
+	/* get a curl handle */
+	curl = curl_easy_init();
+	if(curl) {
+	 /* First set the URL that is about to receive our POST. This URL can
+		just as well be a https:// URL if that is what should receive the
+		data. */
+	 curl_easy_setopt(curl, CURLOPT_URL, "http://net-g12:3335/predict");
+
+	 struct curl_slist *list = NULL;
+	 list = curl_slist_append(list, "Content-Type: application/x-protobuf");
+
+
+	 curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+
+	 /* Now specify the POST data */
+	 std::string send_str;
+	 auto my_hlo_proto = absl::make_unique<HloProto>();
+	 *my_hlo_proto->mutable_hlo_module() = module_->ToProto();
+	 my_hlo_proto->SerializeToString(&send_str);
+	 curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)(send_str.c_str()));
+	 int size = my_hlo_proto->ByteSizeLong();
+
+	 curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, size);
+
+
+	 /* Perform the request, res will get the return code */
+	 res = curl_easy_perform(curl);
+	 /* Check for errors */
+	 if(res != CURLE_OK)
+	   fprintf(stderr, "curl_easy_perform() failed: %s\n",
+			   curl_easy_strerror(res));
+
+	 /* always cleanup */
+	 curl_slist_free_all(list);
+	 curl_easy_cleanup(curl);
+	}
+	curl_global_cleanup();
+	return true;
 }
 
 
@@ -403,10 +451,8 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
   bool changed = false;
   module_ = module;
   int64 fuse_count = 0;
-  std::cout<<"0000000000000000000"<<std::endl;
 
   computation_list_ = module->MakeNonfusionComputationsSorted();
-  std::cout<<"111111111111111111"<<std::endl;
 
 
   for (auto* computation : module->MakeNonfusionComputationsSorted()) {
@@ -418,7 +464,6 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 	reachability_map_.emplace(computation,reachability_);
 
   }
-  std::cout<<"2222222222222222222222"<<std::endl;
 
 
   // Use sorted computations because fusion configuration is order-sensitive.
@@ -519,6 +564,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
       }
     }
 
+
   }
   reachability_.reset();
   do_not_duplicate_map_.clear();
@@ -527,6 +573,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
   std::cout << "Fusion count: " << fuse_count<<std::endl;
+  GetEstimation(module_);
 
   return changed;
 
