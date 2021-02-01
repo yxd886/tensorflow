@@ -566,10 +566,10 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
   }
-  reachability_.reset();
-  do_not_duplicate_map_.clear();
-  randomFusionQueue_map_.clear();
-  reachability_map_.clear();
+  //reachability_.reset();
+  //do_not_duplicate_map_.clear();
+  //randomFusionQueue_map_.clear();
+  //reachability_map_.clear();
 
 
   std::cout << "Fusion count: " << fuse_count<<std::endl;

@@ -611,8 +611,6 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
   TF_RETURN_IF_ERROR(
 	  OptimizeHloModule(module.get(), stream_exec, device_allocator));
 
-
-
 	const char* search_flag=std::getenv("ENABLE_SEARCH");
 
 	if(search_flag &&IsCoreModule(module.get())){//customized tensor fusion

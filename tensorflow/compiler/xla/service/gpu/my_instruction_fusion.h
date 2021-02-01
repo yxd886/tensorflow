@@ -65,6 +65,8 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
   std::vector<HloInstruction*> instruction_list_;
   std::vector<HloComputation*> computation_list_;
 
+  std::map<float,HloModule*> sampled_modules_;
+
 
 
 
