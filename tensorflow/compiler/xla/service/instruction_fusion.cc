@@ -21,6 +21,8 @@ limitations under the License.
 #include <numeric>
 #include <utility>
 #include <vector>
+#include <iostream>
+
 
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_map.h"
@@ -227,40 +229,73 @@ bool InstructionFusion::CanFuseOnAllPaths(
     const HloInstructionSet& do_not_fuse,
     absl::flat_hash_map<std::pair<HloInstruction*, HloInstruction*>, bool>*
         result_cache) {
+	if (std::getenv("PRINT"))std::cout<<"In CanFuseOnAllPaths"<<std::endl;
   if (consumer == producer) {
+	  if (std::getenv("PRINT"))std::cout<<"Out CanFuseOnAllPaths"<<std::endl;
+
     return true;
   }
+if (std::getenv("PRINT"))std::cout<<"In consumer->IsFusible()"<<std::endl;
+
   if (!consumer->IsFusible()) {
+	  if (std::getenv("PRINT"))std::cout<<"Out CanFuseOnAllPaths"<<std::endl;
+
     return false;
   }
+  if (std::getenv("PRINT"))std::cout<<"In  result_cache->find(std::make_pair(producer, consumer));"<<std::endl;
+
   auto cache_it = result_cache->find(std::make_pair(producer, consumer));
   if (cache_it != result_cache->end()) {
+	  if (std::getenv("PRINT"))std::cout<<"Out CanFuseOnAllPaths"<<std::endl;
+
     return cache_it->second;
   }
   bool result = true;
+  if (std::getenv("PRINT"))std::cout<<"In for (int64 i = 0, e = consumer->operand_count(); i < e; ++i;"<<std::endl;
+
   for (int64 i = 0, e = consumer->operand_count(); i < e; ++i) {
     auto* consumer_operand = consumer->mutable_operand(i);
     // If the operand is not on a path to the producer, it doesn't matter
     // whether it's fusible.
+    if (std::getenv("PRINT"))std::cout<<"In reachability_->IsReachable(producer, consumer_operand))"<<std::endl;
     if (!reachability_->IsReachable(producer, consumer_operand)) {
       continue;
     }
-    if (do_not_fuse.count(consumer_operand) > 0 || !ShouldFuse(consumer, i)) {
+    if (std::getenv("PRINT"))std::cout<<"In judge1"<<std::endl;
+
+    bool judge1 =do_not_fuse.count(consumer_operand) > 0;
+    if (std::getenv("PRINT"))std::cout<<"out judge1"<<std::endl;
+    if (std::getenv("PRINT"))std::cout<<"In judge2"<<std::endl;
+    bool judge2 =  !ShouldFuse(consumer, i);
+    if (std::getenv("PRINT"))std::cout<<"out judge2"<<std::endl;
+
+
+    if ( judge1||judge2) {
       result = false;
+      if (std::getenv("PRINT"))std::cout<<"break"<<std::endl;
+
       break;
     }
+
+    if (std::getenv("PRINT"))std::cout<<"In     if (!CanFuseOnAllPaths(producer, consumer_operand, do_not_fuse,"<<std::endl;
+
     // The producer is reachable from consumer_operand which means we need
     // to be able to fuse consumer_operand into consumer in order for
     // producer to be fusible into consumer on all paths.
     // Perform the recursive step: make sure producer can be fused into
     // consumer_operand on all paths.
+
     if (!CanFuseOnAllPaths(producer, consumer_operand, do_not_fuse,
                            result_cache)) {
       result = false;
       break;
     }
   }
+  if (std::getenv("PRINT"))std::cout<<"Out for (int64 i = 0, e = consumer->operand_count(); i < e; ++i;"<<std::endl;
+
   result_cache->emplace(std::make_pair(producer, consumer), result);
+  if (std::getenv("PRINT"))std::cout<<"Out CanFuseOnAllPaths"<<std::endl;
+
   return result;
 }
 
@@ -516,7 +551,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
 
       if (!instruction->IsFusible() &&
           instruction->opcode() != HloOpcode::kFusion) {
-          //std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
+          //if (std::getenv("PRINT"))std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
         continue;
       }
 
@@ -528,7 +563,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
                 << " with operand " << operand->name();
 
         if (!operand->IsFusible()) {
-        	//std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
+        	//if (std::getenv("PRINT"))std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
           continue;
         }
 
@@ -546,10 +581,10 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
         // Try "regular" fusion if the operand may be duplicated. Otherwise,
         // perform multi-output fusion, unless this creates a cycle.
         //if (do_not_duplicate.count(operand)!=0){
-        	//std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
+        	//if (std::getenv("PRINT"))std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
         //}
         //if (!ShouldFuse(instruction, i)){
-        	//std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
+        	//if (std::getenv("PRINT"))std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
         //}
         if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
             ShouldFuse(instruction, i)) {
@@ -846,16 +881,17 @@ bool InstructionFusion::MultiOutputFusionCreatesCycle(
 bool InstructionFusion::ShouldFuse(HloInstruction* consumer,
                                    int64 operand_index) {
   HloInstruction* producer = consumer->mutable_operand(operand_index);
-
+  if (std::getenv("PRINT"))std::cout << "in ShouldFuse"<<std::endl;
   // Cost condition: don't duplicate expensive instructions.
   if (FusionWouldDuplicate(*producer, *consumer) &&
       (!may_duplicate_ || is_expensive_(*producer)) &&
       !IsAlwaysDuplicable(*producer)) {
     VLOG(4) << "Stopping: fusion may duplicate operand ("
             << producer->ToString() << ") , and this is expensive";
-    //std::cout << "Stopping: fusion may duplicate operand ("<< producer->ToString() << ") , and this is expensive"<<std::endl;
+    if (std::getenv("PRINT"))std::cout << "out ShouldFuse: false"<<std::endl;
     return false;
   }
+  if (std::getenv("PRINT"))std::cout << "out ShouldFuse: true"<<std::endl;
 
   return true;
 }

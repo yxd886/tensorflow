@@ -16,6 +16,7 @@
 #include "tensorflow/compiler/xla/service/fusion_queue.h"
 
 #include "tensorflow/compiler/xla/service/all_reduce_combiner.h"
+#include <functional>
 
 
 namespace xla {
@@ -38,6 +39,8 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
       HloComputation* computation);
 
   StatusOr<bool> RandomFuseOnce();
+
+  std::vector<HloComputation*>* GetComputeLists(HloModule* module);
 
   StatusOr<HloInstruction*> FuseSpecificInstruction(HloInstruction* instruction);
 
@@ -67,8 +70,22 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
   std::vector<HloInstruction*> instruction_list_;
   std::vector<HloComputation*> computation_list_;
 
-  std::map<float,HloModule*> sampled_modules_;
-  HloInstructionSet do_not_duplicate;
+  std::map<HloModule*,std::vector<HloComputation*>> module_computation_list_;
+
+  double best_estimation_;
+  HloModule* best_module_;
+
+
+
+  struct CmpByDouble {
+    bool operator()(const double& left, const double& right) {
+        return (abs(left - right) > 1e-7) && (left < right);
+
+    }
+  };
+
+  std::map<double,std::unique_ptr<HloModule>,CmpByDouble> sampled_modules_;
+  HloInstructionSet* do_not_duplicate;
 
 
 

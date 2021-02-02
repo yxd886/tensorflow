@@ -880,6 +880,13 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
   }else if (IsCoreModule()&&search_flag){
 
+		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+
+		if(proc!=0){
+			 exit(0);
+		}
+
+
 		TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
 		DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
