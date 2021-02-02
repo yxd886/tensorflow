@@ -45,6 +45,7 @@ limitations under the License.
 #include "tensorflow/core/lib/core/errors.h"
 #include "tensorflow/core/platform/logging.h"
 #include <mpi.h>
+#include <assert.h>
 
 #include <curl/curl.h>
 
@@ -60,8 +61,12 @@ bool ElementIsF32OrF16(const Shape& shape) {
   return type == F32 || type == F16;
 }
 
-
-bool GetEstimation(HloModule* module_) {
+size_t WriteCallback(char *contents, size_t size, size_t nmemb, void *userp)
+{
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+std::string GetEstimation(HloModule* module_) {
 	CURL *curl;
 	CURLcode res;
 
@@ -70,6 +75,8 @@ bool GetEstimation(HloModule* module_) {
 
 	/* get a curl handle */
 	curl = curl_easy_init();
+	std::string readBuffer;
+
 	if(curl) {
 	 /* First set the URL that is about to receive our POST. This URL can
 		just as well be a https:// URL if that is what should receive the
@@ -92,6 +99,9 @@ bool GetEstimation(HloModule* module_) {
 
 	 curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, size);
 
+	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+
 
 	 /* Perform the request, res will get the return code */
 	 res = curl_easy_perform(curl);
@@ -105,7 +115,7 @@ bool GetEstimation(HloModule* module_) {
 	 curl_easy_cleanup(curl);
 	}
 	curl_global_cleanup();
-	return true;
+	return readBuffer;
 }
 
 
@@ -132,6 +142,95 @@ class RandomFusionQueue : public FusionQueue {
 		produce_sample_=false;
 
 	}
+
+
+  }
+
+  std::pair<HloInstruction*, std::vector<int64>>
+  DequeueLastInstructionAndOperandsToFuseInOrder(){
+	    // Instructions are "removed" from the post order by nulling out the element
+	    // in the vector, so if the pointer is null, continue to the next
+	    // instruction in the sort.
+		if (post_order_.empty()) {
+		  return std::pair<HloInstruction*, std::vector<int64>>{nullptr, {}};
+		}
+
+		int random_number=post_order_.size()-1;
+	    while (!post_order_.empty() && post_order_[random_number] == nullptr) {
+	      post_order_.erase(post_order_.begin()+random_number);
+	    }
+	    if (post_order_.empty()) {
+	      return std::pair<HloInstruction*, std::vector<int64>>{nullptr, {}};
+	    }
+	    // We want to iterate in reverse post order, so remove from the back of the
+	    // vector.
+	    HloInstruction* instruction = post_order_[random_number];
+	    post_order_.erase(post_order_.begin()+random_number);
+
+	    CHECK(instruction != nullptr);
+	    // Remove instruction from the index map to ensure the vector and map stay
+	    // consistent.
+	    post_order_index_.erase(instruction);
+
+	    // Consider each operand of this instruction for fusion into this
+	    // instruction. We want to consider the operands in a particular order to
+	    // avoid creating duplicate instruction clones in the fusion instruction.
+	    // For example, consider the following expression:
+	    //
+	    //   A = ...
+	    //   B = op(A)
+	    //   C = op(A, B)
+	    //
+	    // If we are considering the operands of C for fusion into C. We might
+	    // fuse A or B first. If we fuse A first, we get:
+	    //
+	    //   A = ...
+	    //   B = op(A)
+	    //   C_fusion = { A' = ...
+	    //                C' = op(A', B) }
+	    //
+	    // Where A' and C' are clones of A and C, respectively. Now only B is an
+	    // operand of the fusion instruction C_fusion, so then we fuse B:
+	    //
+	    //   A = ...
+	    //   B = op(A)
+	    //   C_fusion = { A' = ...
+	    //                B' = op(A)
+	    //                C' = op(A', B') }
+	    //
+	    // Now A is an operand of C_fusion again, so we then fuse A (again!):
+	    //
+	    //   A = ...
+	    //   B = op(A)
+	    //   C_fusion = { A' = ...
+	    //                A" = ..
+	    //                B' = op(A")
+	    //                C' = op(A', B') }
+	    //
+	    // We prevent this duplication by considering the operands in the order
+	    // they appear int the queue. In the example, this ensures that B will be
+	    // considered before A.
+	    //
+	    // We store the original indices of the operands to pass to ShouldFuse.
+	    std::vector<int64> sorted_operand_numbers;
+	    sorted_operand_numbers.reserve(instruction->operands().size());
+	    for (int i = 0; i < instruction->operands().size(); ++i) {
+	      // This will happen if we have two possible instructions to fuse the
+	      // same operand into; once the operand is fused into one instruction,
+	      // the other instruction will get a new get-tuple-element as its
+	      // operand, which is not in the queue.
+	      // TODO(tjoerg): Look into fusing past these multi-output fuse points.
+	      if (!ContainsKey(post_order_index_, instruction->mutable_operand(i))) {
+	        continue;
+	      }
+	      sorted_operand_numbers.push_back(i);
+	    }
+	    absl::c_sort(sorted_operand_numbers, [&](int64 i, int64 j) {
+	      // Instructions with higher priority in the queue come first.
+	      return (FindOrDie(post_order_index_, instruction->mutable_operand(i)) >
+	              FindOrDie(post_order_index_, instruction->mutable_operand(j)));
+	    });
+	    return std::make_pair(instruction, sorted_operand_numbers);
 
 
   }
@@ -237,6 +336,32 @@ class RandomFusionQueue : public FusionQueue {
     });
     return std::make_pair(instruction, sorted_operand_numbers);
   }
+
+  std::vector<int64> GetSortedOperandNumbers(HloInstruction*instruction){
+	    std::vector<int64> sorted_operand_numbers;
+	    sorted_operand_numbers.reserve(instruction->operands().size());
+	    for (int i = 0; i < instruction->operands().size(); ++i) {
+	      // This will happen if we have two possible instructions to fuse the
+	      // same operand into; once the operand is fused into one instruction,
+	      // the other instruction will get a new get-tuple-element as its
+	      // operand, which is not in the queue.
+	      // TODO(tjoerg): Look into fusing past these multi-output fuse points.
+	      if (!ContainsKey(post_order_index_, instruction->mutable_operand(i))) {
+	        continue;
+	      }
+	      sorted_operand_numbers.push_back(i);
+	    }
+	    absl::c_sort(sorted_operand_numbers, [&](int64 i, int64 j) {
+	      // Instructions with higher priority in the queue come first.
+	      return (FindOrDie(post_order_index_, instruction->mutable_operand(i)) >
+	              FindOrDie(post_order_index_, instruction->mutable_operand(j)));
+	    });
+
+
+	    return sorted_operand_numbers;
+
+  }
+
 
   void OnFusingInstruction(HloInstruction* fusion,
                            HloInstruction* original_producer,
@@ -421,22 +546,133 @@ HloInstruction* MyGpuInstructionFusion::FuseInstruction(
 }
 
 
+StatusOr<HloInstruction*> MyGpuInstructionFusion::FuseSpecificInstruction(HloInstruction* instruction){
+    if (instruction == nullptr) {
+      return nullptr;
+    }
+    if (!instruction->IsFusible() &&
+        instruction->opcode() != HloOpcode::kFusion) {
+        std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
+      return nullptr;
+    }
+
+    auto fusion_queue =GetRandomFusionQueue(computation_);
+    HloInstruction* fusion_instruction = nullptr;
+
+    auto sorted_operand_numbers =static_cast<RandomFusionQueue*>(fusion_queue.get())->GetSortedOperandNumbers(instruction);
+
+    std::cout<<"sorted_operand_numbers length:"<<sorted_operand_numbers.size()<<std::endl;
+
+    for (int64 i : sorted_operand_numbers) {
+      HloInstruction* operand = instruction->mutable_operand(i);
+      VLOG(5) << "Considering fusion of: " << instruction->ToString()
+              << " with operand " << operand->name();
+
+      if (!operand->IsFusible()) {
+      	std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
+        continue;
+      }
+
+      // Consumes a unit of compiler fuel and returns true if we should
+      // continue with the transformation.
+      auto consume_fuel = [&] {
+        return ConsumeFuel(name(), /*ran_out_of_fuel_msg=*/[&] {
+          return absl::StrFormat("Not fusing operand %d of %s, namely, %s", i,
+                                 instruction->ToString(),
+                                 operand->ToString());
+        });
+      };
+
+      // Try "regular" fusion if the operand may be duplicated. Otherwise,
+      // perform multi-output fusion, unless this creates a cycle.
+      //if (do_not_duplicate.count(operand)!=0){
+      	//std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
+      //}
+      //if (!ShouldFuse(instruction, i)){
+      	//std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
+      //}
+      if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
+          ShouldFuse(instruction, i)) {
+        if (consume_fuel()) {
+          fusion_queue->PreFusion(operand, instruction);
+          fusion_instruction = Fuse(operand, instruction);
+        }
+      }
+
+      if (fusion_instruction == nullptr) {
+        continue;
+      }
+
+      fusion_queue->OnFusingInstruction(fusion_instruction, operand,
+                                        instruction);
+
+      if (operand->user_count() == 0) {
+        do_not_duplicate.erase(operand);
+        // Operand is now dead. Remove from queue.
+        fusion_queue->RemoveInstruction(operand);
+        // Remove from computation.
+        TF_RETURN_IF_ERROR(computation_->RemoveInstruction(operand));
+      }
+
+      if (fusion_instruction != instruction) {
+        do_not_duplicate.erase(instruction);
+      }
+      break;
+    }
+    return fusion_instruction;
+
+}
 
 
 StatusOr<bool> MyGpuInstructionFusion::RandomFuseOnce(){
 	bool changed = false;
+	int fuse_count = 0;
 	int random_number= std::experimental::randint(0, int(computation_list_.size())-1);
 	computation_ = computation_list_[random_number];
-    reachability_ = HloReachabilityMap::Build(computation_);
-    HloInstructionSet do_not_duplicate;
+    reachability_ = reachability_map_.find(computation_)->second;
     // If we allow duplications, we need to compute which instructions we do not
     // want to duplicate based on a global analysis of the graph.
 
     do_not_duplicate =do_not_duplicate_map_.find(computation_)->second;
     auto fusion_queue = GetRandomFusionQueue(computation_);
-    return true;
+
+    while (!changed){
+
+    	auto next_entry =
+    	  fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
+
+    	HloInstruction* instruction = next_entry.first;
+    	if (instruction == nullptr) {
+
+    		computation_list_.erase(computation_list_.begin()+random_number);
+    		std::cout<<"fusion_queue nullptr"<<std::endl;
+    		break;
+    	}
+
+    	int random_times= std::experimental::randint(1,10);
+    	for (int i=0;i<random_times;i++){
+
+    		TF_ASSIGN_OR_RETURN(instruction, FuseSpecificInstruction(instruction));
+    		if (instruction == nullptr) {
+    			std::cout<<"FuseSpecificInstruction nullptr"<<std::endl;
+    			break;
+    		}else{
+    			//dequeue just fused instruction.
+    			auto fused_entry =static_cast<RandomFusionQueue*>(fusion_queue.get())->DequeueLastInstructionAndOperandsToFuseInOrder();
+    			auto fused_instruction = fused_entry.first;
+    			assert(fused_instruction==instruction);
+    			changed = true;
+    		    ++fuse_count;
+
+    		}
+
+    	}
+
+    }
 
 
+	std::cout << "Fusion count: " << fuse_count<<std::endl;
+	return changed;
 
 }
 
@@ -464,116 +700,24 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 	reachability_map_.emplace(computation,reachability_);
 
   }
+  for (int i=0;i<500;i++){
 
 
-  // Use sorted computations because fusion configuration is order-sensitive.
-  for (auto* computation : module->MakeNonfusionComputationsSorted()) {
-    CHECK(!computation->IsFusionComputation());
-    computation_ = computation;
-    reachability_ = HloReachabilityMap::Build(computation_);
+	  TF_ASSIGN_OR_RETURN(changed, RandomFuseOnce());
+	  if(changed){
 
-    HloInstructionSet do_not_duplicate;
-    // If we allow duplications, we need to compute which instructions we do not
-    // want to duplicate based on a global analysis of the graph.
+		  auto estimate = GetEstimation(module_);
 
-    do_not_duplicate =
-          ComputeGloballyUnfusible(computation_->MakeInstructionPostOrder());
+		  std::cout<<"estimation:"<<estimate<<std::endl;
 
-    auto fusion_queue = GetRandomFusionQueue(computation_);
+	  }
 
 
-    // Instruction fusion effectively fuses edges in the computation graph
-    // (producer instruction -> consumer instruction) so we iterate over all
-    // edges. When we fuse an edge, we create a copy of the producer inside the
-    // fusion instruction.
-    for (int64 random_times=0;random_times<500;random_times++) {
-      auto next_entry =
-          fusion_queue->DequeueNextInstructionAndOperandsToFuseInOrder();
-
-      HloInstruction* instruction = next_entry.first;
-      if (instruction == nullptr) {
-        break;
-      }
-
-      if (!instruction->IsFusible() &&
-          instruction->opcode() != HloOpcode::kFusion) {
-          //std::cout << "instruction (" << instruction->name() << ") is not fusible"<<std::endl;
-        continue;
-      }
-
-      std::vector<int64>& sorted_operand_numbers = next_entry.second;
-
-      for (int64 i : sorted_operand_numbers) {
-        HloInstruction* operand = instruction->mutable_operand(i);
-        VLOG(5) << "Considering fusion of: " << instruction->ToString()
-                << " with operand " << operand->name();
-
-        if (!operand->IsFusible()) {
-        	//std::cout << "Operand (" << operand->name() << ") is not fusible"<<std::endl;
-          continue;
-        }
-
-        // Consumes a unit of compiler fuel and returns true if we should
-        // continue with the transformation.
-        auto consume_fuel = [&] {
-          return ConsumeFuel(name(), /*ran_out_of_fuel_msg=*/[&] {
-            return absl::StrFormat("Not fusing operand %d of %s, namely, %s", i,
-                                   instruction->ToString(),
-                                   operand->ToString());
-          });
-        };
-
-        HloInstruction* fusion_instruction = nullptr;
-        // Try "regular" fusion if the operand may be duplicated. Otherwise,
-        // perform multi-output fusion, unless this creates a cycle.
-        //if (do_not_duplicate.count(operand)!=0){
-        	//std::cout << "do_not_duplicate has " << operand->name()<<std::endl;
-        //}
-        //if (!ShouldFuse(instruction, i)){
-        	//std::cout << "The " <<i<<"operand:"<<operand->name()<<"cannot fused to "<<"instruction: "<<instruction->name()<<std::endl;
-        //}
-        if (may_duplicate_&&do_not_duplicate.count(operand) == 0 &&
-            ShouldFuse(instruction, i)) {
-          if (consume_fuel()) {
-            fusion_queue->PreFusion(operand, instruction);
-            fusion_instruction = Fuse(operand, instruction);
-          }
-        }
-
-        if (fusion_instruction == nullptr) {
-          continue;
-        }
-
-        fusion_queue->OnFusingInstruction(fusion_instruction, operand,
-                                          instruction);
-        changed = true;
-        ++fuse_count;
-
-        if (operand->user_count() == 0) {
-          do_not_duplicate.erase(operand);
-          // Operand is now dead. Remove from queue.
-          fusion_queue->RemoveInstruction(operand);
-          // Remove from computation.
-          TF_RETURN_IF_ERROR(computation_->RemoveInstruction(operand));
-        }
-
-        if (fusion_instruction != instruction) {
-          do_not_duplicate.erase(instruction);
-        }
-        break;
-      }
-    }
 
 
   }
-  //reachability_.reset();
-  //do_not_duplicate_map_.clear();
-  //randomFusionQueue_map_.clear();
-  //reachability_map_.clear();
 
 
-  std::cout << "Fusion count: " << fuse_count<<std::endl;
-  GetEstimation(module_);
 
   return changed;
 

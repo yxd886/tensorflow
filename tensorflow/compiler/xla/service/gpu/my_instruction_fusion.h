@@ -39,6 +39,8 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
 
   StatusOr<bool> RandomFuseOnce();
 
+  StatusOr<HloInstruction*> FuseSpecificInstruction(HloInstruction* instruction);
+
   HloInstruction::FusionKind ChooseKind(
       const HloInstruction* producer, const HloInstruction* consumer) override;
 
@@ -66,7 +68,7 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
   std::vector<HloComputation*> computation_list_;
 
   std::map<float,HloModule*> sampled_modules_;
-
+  HloInstructionSet do_not_duplicate;
 
 
 

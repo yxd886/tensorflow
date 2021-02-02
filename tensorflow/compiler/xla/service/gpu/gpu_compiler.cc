@@ -616,11 +616,11 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 	if(search_flag &&IsCoreModule(module.get())){//customized tensor fusion
 
 		auto my_instruction_fusion = absl::make_unique<xla::gpu::MyGpuInstructionFusion>(true);
-		for (int i=0;i<10;i++){
-			my_instruction_fusion->Run(module.get());
-			//module->Cleanup();
 
-		}
+		my_instruction_fusion->Run(module.get());
+
+
+
 	}
 
 	//customized fusion logic
