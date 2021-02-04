@@ -619,6 +619,11 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 
 		my_instruction_fusion->Run(module.get());
 
+		std::unique_ptr<HloModule> search_best_module = std::move(my_instruction_fusion->best_module_);
+		search_best_module->Cleanup();
+		TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(search_best_module.get()));
+		return std::move(search_best_module);
+
 
 
 	}

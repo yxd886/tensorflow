@@ -137,7 +137,7 @@ class InstructionFusion : public HloModulePass {
   HloComputation* computation_;
   HloModule* module_;
   // Reachability information for the current computation.
-  std::shared_ptr<HloReachabilityMap> reachability_;
+  std::unique_ptr<HloReachabilityMap> reachability_;
 
   FusionConfigCollection config_collection_mode() {
     return config_collection_mode_;

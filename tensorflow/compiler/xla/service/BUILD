@@ -958,7 +958,9 @@ cc_library(
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
         "@openmpi//:openmpi-lib",
-        "//tensorflow/compiler/xla/service/gpu:my_instruction_fusion"
+        "//tensorflow/compiler/xla/service/gpu:my_instruction_fusion",
+        "//tensorflow/compiler/xla/service/gpu:gpu_compiler"
+        
         
     ],
     alwayslink = 1,

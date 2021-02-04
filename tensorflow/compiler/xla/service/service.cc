@@ -14,6 +14,8 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/compiler/xla/service/service.h"
+#include "tensorflow/compiler/xla/service/gpu/gpu_compiler.h"
+
 
 #include <memory>
 #include <string>
@@ -877,6 +879,9 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		auto my_module_proto = hlo_proto.hlo_module();
 		TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(my_module_proto,*module_config));
 		  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+
+		  //TF_RETURN_IF_ERROR((static_cast<xla::gpu::GpuCompiler*>(backend->compiler()))->PrepareHloModuleForIrEmitting(module.get()));
 
   }else if (IsCoreModule()&&search_flag){
 
