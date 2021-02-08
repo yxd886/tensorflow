@@ -79,41 +79,41 @@ float GetEstimation(HloModule* module_) {
 	 /* First set the URL that is about to receive our POST. This URL can
 		just as well be a https:// URL if that is what should receive the
 		data. */
-	 curl_easy_setopt(curl, CURLOPT_URL, "http://net-g12:3335/predict");
+		curl_easy_setopt(curl, CURLOPT_URL, "http://net-g12:3335/predict");
 
-	 struct curl_slist *list = NULL;
-	 list = curl_slist_append(list, "Content-Type: application/x-protobuf");
-
-
-	 curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
-
-	 /* Now specify the POST data */
-	 std::string send_str;
-	 auto my_hlo_proto = absl::make_unique<HloProto>();
-	 *my_hlo_proto->mutable_hlo_module() = module_->ToProto();
-	 my_hlo_proto->SerializeToString(&send_str);
-	 curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)(send_str.c_str()));
-	 int size = my_hlo_proto->ByteSizeLong();
-
-	 curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, size);
-
-	curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+		struct curl_slist *list = NULL;
+		list = curl_slist_append(list, "Content-Type: application/x-protobuf");
 
 
-	 /* Perform the request, res will get the return code */
-	 res = curl_easy_perform(curl);
-	 /* Check for errors */
-	 if(res != CURLE_OK)
-	   fprintf(stderr, "curl_easy_perform() failed: %s\n",
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, list);
+
+		/* Now specify the POST data */
+		std::string send_str;
+		auto my_hlo_proto = absl::make_unique<HloProto>();
+		*my_hlo_proto->mutable_hlo_module() = module_->ToProto();
+		my_hlo_proto->SerializeToString(&send_str);
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDS, (void*)(send_str.c_str()));
+		int size = my_hlo_proto->ByteSizeLong();
+
+		curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE_LARGE, size);
+
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+
+
+		/* Perform the request, res will get the return code */
+		res = curl_easy_perform(curl);
+		/* Check for errors */
+		if(res != CURLE_OK)
+		fprintf(stderr, "curl_easy_perform() failed: %s\n",
 			   curl_easy_strerror(res));
 
-	 /* always cleanup */
-	 curl_slist_free_all(list);
-	 curl_easy_cleanup(curl);
-	}
-	curl_global_cleanup();
-	return std::stof(readBuffer);
+		/* always cleanup */
+		curl_slist_free_all(list);
+		curl_easy_cleanup(curl);
+		}
+		curl_global_cleanup();
+		return std::stof(readBuffer);
 }
 
 
@@ -524,7 +524,15 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 			if(changed){
 
 				auto est_start = system_clock::now();
-				auto estimate = GetEstimation(module_);
+				try{
+					auto estimate = GetEstimation(module_);
+
+				}catch(exception& e){
+					std::cout<<"Exception happen:"<<std::endl;
+					cloned_module.reset();
+					module_ = nullptr;
+					continue;
+				}
 				auto est_end = system_clock::now();
 				auto est_duration = duration_cast<microseconds>(est_end - est_start);
 				double est_realtime = double(est_duration.count()) * microseconds::period::num / microseconds::period::den;
@@ -532,29 +540,29 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 				//std::cout<<"Estimation time:"<<est_realtime<<std::endl;
 
 
-			  std::cout<<"  estimation:"<<estimate<<std::endl;
+				std::cout<<"  estimation:"<<estimate<<std::endl;
 
-			  if (estimate<best_estimation_){
+				if (estimate<best_estimation_){
 					best_estimation_ = estimate;
 					std::cout<<"better estimation:"<<estimate<<std::endl;
 					best_module_ =module_->Clone(module_->config(),"");
-			  }
-			  if((best_estimation_>0&&estimate<1.1*best_estimation_)||(best_estimation_<0&&1.1*estimate<best_estimation_)){
+				}
+				if((best_estimation_>0&&estimate<1.1*best_estimation_)||(best_estimation_<0&&1.1*estimate<best_estimation_)){
 					std::cout<<"  Push current  module in priority queue"<<std::endl;
 					sampled_modules_.emplace(estimate,std::move(cloned_module));
 
-			  }else{
+				}else{
 
 				  cloned_module.reset();
-			  }
-			  module_ = nullptr;
+				}
+				module_ = nullptr;
 
-			  /*else if (sampled_modules_.size()<10){
+				/*else if (sampled_modules_.size()<10){
 					sampled_modules_.emplace(estimate,cloned_module);
-			  }*/
-			  if(sampled_modules_.size()>50){
+				}*/
+				if(sampled_modules_.size()>50){
 				  sampled_modules_.erase(std::prev( sampled_modules_.end() ));
-			  }
+				}
 
 		  }
 
