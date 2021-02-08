@@ -522,10 +522,11 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
 			if(changed){
+				float estimate = 0;
 
 				auto est_start = system_clock::now();
 				try{
-					auto estimate = GetEstimation(module_);
+					estimate = GetEstimation(module_);
 
 				}catch(exception& e){
 					std::cout<<"Exception happen:"<<std::endl;
