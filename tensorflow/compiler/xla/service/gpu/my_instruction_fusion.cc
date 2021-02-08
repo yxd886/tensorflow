@@ -452,7 +452,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 	sampled_modules_.emplace(estimate,std::move(cloned_module));
 
 	int sample_times =0;
-	while(!sampled_modules_.empty()||sample_times<500){
+	while(!sampled_modules_.empty()&&sample_times<500){
 		sample_times+=1;
 		std::cout<<"sample_times: "<<sample_times<<std::endl;
 		if (std::getenv("PRINT"))std::cout<<"Begin While"<<std::endl;
