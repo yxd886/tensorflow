@@ -311,7 +311,7 @@ Status GpuCompiler::OptimizeHloModule(
                                                      device_allocator));
 
 
-	const char* op_fusion_char=std::getenv("OP_FUSION");
+	const char* op_fusion_char=std::getenv("OP_FUSION_THRESHOLD");
 
 	int op_fusion_level=0;
 	std::stringstream ss(op_fusion_char);
