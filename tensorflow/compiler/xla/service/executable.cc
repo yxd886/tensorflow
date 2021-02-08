@@ -269,14 +269,15 @@ Status ExecuteWrapperAfterExecution(
         << "Error saving HloExecutionProfileData to " << full_path;
   }
 
-  if (state.profile_ptr != nullptr) {
+  /*if (state.profile_ptr != nullptr) {
     const se::DeviceDescription* device_description =
         &stream->parent()->GetDeviceDescription();
     std::shared_ptr<HloExecutionProfile> profile = state.profile_ptr;
     stream->ThenDoHostCallback([profile, device_description]() {
       XLA_LOG_LINES(tensorflow::INFO, profile->ToString(*device_description));
     });
-  }
+  }*/
+
 
   return return_status;
 }
