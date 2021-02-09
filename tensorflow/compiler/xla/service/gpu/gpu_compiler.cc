@@ -338,7 +338,7 @@ Status GpuCompiler::OptimizeHloModule(
     if(search_flag &&IsCoreModule(hlo_module)){//customized op fusion
         ;//fusion.AddPass<MyGpuInstructionFusion>(/*may_duplicate=*/true);
 
-    }else{//default op fusion
+    }else if(IsCoreModule(hlo_module)){//default op fusion
 
         if (op_fusion_level==1){ //only duplicate fusion
             fusion.AddPass<GpuInstructionFusion>(/*may_duplicate=*/true);
