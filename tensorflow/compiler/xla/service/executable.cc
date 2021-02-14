@@ -262,7 +262,7 @@ Status ExecuteWrapperAfterExecution(
   if (executable->module_config().debug_options().xla_hlo_profile() &&
       state.profile_ptr != nullptr && !dump_path.empty()) {
     const std::string full_path =
-        tensorflow::io::JoinPath(dump_path, "hlo_execution_profile_data");
+        tensorflow::io::JoinPath(dump_path, "hlo_execution_profile_data_"+std::to_string(executable->module().unique_id()));
     TF_CHECK_OK(tensorflow::WriteStringToFile(
         tensorflow::Env::Default(), full_path,
         state.profile_ptr->ToProto().SerializeAsString()))
