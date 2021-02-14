@@ -843,11 +843,13 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 	//std::string A = "pmap__multi_device_update_fn__1.52901";
 	std::unique_ptr<HloModule> module;
 	const char* search_flag=std::getenv("ENABLE_SEARCH");
+	const char* activate_flag=std::getenv("ENABLE_ACTIVATE");
+
 	int nProcs = 1, proc = 2;
 	int localRank = 0;
 	HloProto hlo_proto;
 	int size = 0;
-	if(IsCoreModule()&&!search_flag){
+	if(IsCoreModule()&&activate_flag){
 	 //if is not search, means it is normally activate already optimized module
 			//MPI_Init(nullptr, nullptr);
 		MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
@@ -947,7 +949,7 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
 
 
-  }else { // it is not core module
+  }else { // 1. it is not core module 2. no activate flag nor search flag
 	  TF_ASSIGN_OR_RETURN(module,
 						  CreateModuleFromProto(module_proto, *module_config));
 	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
