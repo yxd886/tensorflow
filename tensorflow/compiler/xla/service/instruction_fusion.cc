@@ -657,7 +657,7 @@ StatusOr<bool> InstructionFusion::NewRun(HloModule* module) {
 
 
 StatusOr<bool> InstructionFusion::Run(HloModule* module) {
-  return NewRun(module);
+  //return NewRun(module);
   bool changed = false;
   module_ = module;
   int64 fuse_count = 0;
