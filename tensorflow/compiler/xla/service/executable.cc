@@ -267,6 +267,9 @@ Status ExecuteWrapperAfterExecution(
         tensorflow::Env::Default(), full_path,
         state.profile_ptr->ToProto().SerializeAsString()))
         << "Error saving HloExecutionProfileData to " << full_path;
+
+    MyDumpHloModuleIfEnabled(executable->module(),
+                           "profile_hlo_module");
   }
 
   /*if (state.profile_ptr != nullptr) {
