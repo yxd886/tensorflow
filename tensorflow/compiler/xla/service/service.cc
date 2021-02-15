@@ -949,16 +949,62 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
 
 
-  }else { // 1. it is not core module 2. no activate flag nor search flag
-	  TF_ASSIGN_OR_RETURN(module,
-						  CreateModuleFromProto(module_proto, *module_config));
-	  DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+  }else if(IsCoreModule()){ // 1. it is not core module 2. no activate flag nor search flag
 
-	  TF_ASSIGN_OR_RETURN(
-		  module, backend->compiler()->RunHloPasses(std::move(module), executor,
+		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+
+		if(proc==0){
+			TF_ASSIGN_OR_RETURN(module,
+						  CreateModuleFromProto(module_proto, *module_config));
+			DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+			TF_ASSIGN_OR_RETURN(
+					module, backend->compiler()->RunHloPasses(std::move(module), executor,
 													device_allocator));
 
+			auto my_hlo_proto = absl::make_unique<HloProto>();
+			*my_hlo_proto->mutable_hlo_module() = module->ToProto();
+			fstream output("results/tmp.pb", ios::out | ios::trunc | ios::binary);
+			my_hlo_proto->SerializeToOstream(&output);
+			fstream input("results/tmp.pb", ios::in | ios::binary);
+			hlo_proto.ParseFromIstream(&input);
+			size = hlo_proto.ByteSizeLong();
+			std::cout<<"size:"<<size<<std::endl;
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
+			std::string send_str;
+			hlo_proto.SerializeToString(&send_str);
+			MPI_Bcast((void*)send_str.c_str(), size, MPI_BYTE, 0, MPI_COMM_WORLD);
 
+
+
+
+
+		}else{
+			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::cout<<"size:"<<size<<std::endl;
+			char* recv = (char*)malloc(size);
+			MPI_Bcast(recv, size, MPI_BYTE, 0, MPI_COMM_WORLD);
+			std::string recv_str(recv,size);
+			hlo_proto.ParseFromString(recv_str);
+
+
+		}
+
+		auto my_module_proto = hlo_proto.hlo_module();
+		TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(my_module_proto,*module_config));
+
+
+
+
+
+  }else{
+		TF_ASSIGN_OR_RETURN(module,
+					  CreateModuleFromProto(module_proto, *module_config));
+		DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
+
+		TF_ASSIGN_OR_RETURN(
+				module, backend->compiler()->RunHloPasses(std::move(module), executor,
+												device_allocator));
 
   }
 
