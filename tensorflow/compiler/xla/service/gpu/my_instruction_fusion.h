@@ -17,7 +17,7 @@
 #include "tensorflow/compiler/xla/service/gpu/instruction_fusion.h"
 #include "tensorflow/compiler/xla/service/fusion_queue.h"
 
-#include "tensorflow/compiler/xla/service/all_reduce_combiner.h"
+#include "tensorflow/compiler/xla/service/my_all_reduce_combiner.h"
 #include <functional>
 #include <assert.h>
 
@@ -285,7 +285,7 @@ class RandomFusionQueue : public FusionQueue {
 class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOutputFusion,public AllReduceCombiner {
  public:
   explicit MyGpuInstructionFusion(bool may_duplicate)
-      : GpuInstructionFusion(may_duplicate),multi_output_fuser_(MyGpuMultiOutputFusion()),all_reduce_combiner_(AllReduceCombiner(0,0)){
+      : GpuInstructionFusion(may_duplicate),multi_output_fuser_(MyGpuMultiOutputFusion()),all_reduce_combiner_(MyAllReduceCombiner(0,0)){
 
   }//,GpuMultiOutputFusion(),AllReduceCombiner(0,0) {}
 
@@ -351,7 +351,7 @@ class MyGpuInstructionFusion : public GpuInstructionFusion{//,public GpuMultiOut
 
 
   MyGpuMultiOutputFusion multi_output_fuser_;
-  AllReduceCombiner all_reduce_combiner_;
+  MyAllReduceCombiner all_reduce_combiner_;
 
 };
 

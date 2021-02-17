@@ -2214,6 +2214,34 @@ cc_library(
     ],
 )
 
+
+
+
+cc_library(
+    name = "my_all_reduce_combiner",
+    srcs = ["my_all_reduce_combiner.cc"],
+    hdrs = ["my_all_reduce_combiner.h"],
+    deps = [
+        ":hlo",
+        ":hlo_casting_utils",
+        ":hlo_domain_map",
+        ":hlo_pass",
+        ":hlo_query",
+        ":hlo_reachability",
+        ":shape_inference",
+        "//tensorflow/compiler/xla:array2d",
+        "//tensorflow/compiler/xla:literal",
+        "//tensorflow/compiler/xla:shape_util",
+        "//tensorflow/compiler/xla:status_macros",
+        "//tensorflow/compiler/xla:statusor",
+        "//tensorflow/compiler/xla:xla_data_proto_cc",
+        "//tensorflow/core:lib",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
 tf_cc_test(
     name = "all_reduce_combiner_test",
     srcs = ["all_reduce_combiner_test.cc"],
