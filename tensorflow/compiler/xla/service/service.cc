@@ -949,7 +949,7 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 
 
 
-  }else if(IsCoreModule()){ //1. no activate flag nor search flag
+  }/*else if(IsCoreModule()){ //1. no activate flag nor search flag
 
 		MPI_Comm_rank(MPI_COMM_WORLD, &proc);
 
@@ -994,13 +994,9 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 		auto my_module_proto = hlo_proto.hlo_module();
 		TF_ASSIGN_OR_RETURN(module, CreateModuleFromProto(my_module_proto,*module_config));
 
-		TF_ASSIGN_OR_RETURN(
-				module, backend->compiler()->RunHloPasses(std::move(module), executor,
-												device_allocator));
 
 
-
-  }else{
+  }*/else{
 		TF_ASSIGN_OR_RETURN(module,
 					  CreateModuleFromProto(module_proto, *module_config));
 		DumpHloModuleIfEnabled(*module, kBeforeOptimizationsDumpName);
