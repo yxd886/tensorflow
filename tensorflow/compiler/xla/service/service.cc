@@ -968,7 +968,7 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 			//my_hlo_proto->SerializeToOstream(&output);
 			//fstream input("results/tmp.pb", ios::in | ios::binary);
 			//hlo_proto.ParseFromIstream(&input);
-			hlo_proto.mutable_hlo_module()=module->ToProto();
+			*hlo_proto.mutable_hlo_module()=module->ToProto();
 			size = hlo_proto.ByteSizeLong();
 			std::cout<<"size:"<<size<<std::endl;
 			MPI_Bcast(&size, sizeof(size), MPI_BYTE, 0, MPI_COMM_WORLD);\
