@@ -630,11 +630,6 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 
 	//customized fusion logic
 
-
-
-
-
-
   TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(module.get()));
   //cout<<"out PrepareHloModuleForIrEmitting pass"<<endl;
 
