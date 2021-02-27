@@ -452,7 +452,23 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 	sampled_modules_.emplace(estimate,std::move(cloned_module));
 
 	int sample_times =0;
-	while(!sampled_modules_.empty()&&sample_times<500){
+	int total_sample_time=500; //default sample time 500
+	const char* total_sample_time_char=std::getenv("TOTAL_SAMPLE_TIME");
+	if(total_sample_time_char){
+		std::stringstream ss(total_sample_time_char);
+		ss >> total_sample_time;
+	}
+
+
+	int buffer_size=50; //default buffer size
+
+	const char* buffer_size_char=std::getenv("BUFFER_SIZE");
+	if(buffer_size_char){
+		std::stringstream ss1(buffer_size_char);
+		ss1 >> buffer_size;
+	}
+
+	while(!sampled_modules_.empty()&&sample_times<total_sample_time){
 		sample_times+=1;
 		std::cout<<"sample_times: "<<sample_times<<std::endl;
 		if (std::getenv("PRINT"))std::cout<<"Begin While"<<std::endl;
@@ -561,7 +577,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 				/*else if (sampled_modules_.size()<10){
 					sampled_modules_.emplace(estimate,cloned_module);
 				}*/
-				if(sampled_modules_.size()>50){
+				if(sampled_modules_.size()>buffer_size){
 				  sampled_modules_.erase(std::prev( sampled_modules_.end() ));
 				}
 
