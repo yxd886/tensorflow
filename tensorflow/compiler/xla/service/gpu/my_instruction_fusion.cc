@@ -448,16 +448,10 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
 
-	std::unique_ptr<HloModule> cloned_module = module->Clone(module->config(),"");
+	std::unique_ptr<HloModule> cloned_module = module->Clone(module->config(),"1");
 	sampled_modules_.emplace(estimate,std::move(cloned_module));
 
 	int sample_times =0;
-	int total_sample_time=500; //default sample time 500
-	const char* total_sample_time_char=std::getenv("TOTAL_SAMPLE_TIME");
-	if(total_sample_time_char){
-		std::stringstream ss(total_sample_time_char);
-		ss >> total_sample_time;
-	}
 
 
 	int buffer_size=50; //default buffer size
@@ -468,7 +462,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 		ss1 >> buffer_size;
 	}
 
-	while(!sampled_modules_.empty()&&sample_times<total_sample_time){
+	while(!sampled_modules_.empty()&&sample_times<100){
 		sample_times+=1;
 		std::cout<<"sample_times: "<<sample_times<<std::endl;
 		if (std::getenv("PRINT"))std::cout<<"Begin While"<<std::endl;
@@ -490,7 +484,7 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 		for (int i=0;i<10;i++){
 
 
-			std::unique_ptr<HloModule> cloned_module = pop_module->Clone(pop_module->config(),"");
+			std::unique_ptr<HloModule> cloned_module = pop_module->Clone(pop_module->config(),"1");
 			fusion_node_evaluations_.clear();
 
 			bool changed = false;

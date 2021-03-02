@@ -615,11 +615,39 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 
 	if(search_flag &&IsCoreModule(module.get())){//customized tensor fusion
 
+
+		int total_sample_time=500; //default sample time 500
+		const char* total_sample_time_char=std::getenv("TOTAL_SAMPLE_TIME");
+		if(total_sample_time_char){
+			std::stringstream ss(total_sample_time_char);
+			ss >> total_sample_time;
+		}
+
+		int iteration_time = total_sample_time/100;
+
+
 		auto my_instruction_fusion = absl::make_unique<xla::gpu::MyGpuInstructionFusion>(true);
 
-		my_instruction_fusion->Run(module.get());
+		std::unique_ptr<HloModule> search_best_module = std::move(module);
 
-		std::unique_ptr<HloModule> search_best_module = std::move(my_instruction_fusion->best_module_);
+		std::unique_ptr<HloModule> cloned_module = search_best_module->Clone(search_best_module->config(),"1");
+
+		for (int i = 0; i < iteration_time; i++){
+			my_instruction_fusion->Run(search_best_module.get());
+			search_best_module = std::move(my_instruction_fusion->best_module_);
+			cloned_module = search_best_module->Clone(search_best_module->config(),"1");
+			cloned_module->Cleanup();
+			TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(cloned_module.get()));
+			auto my_hlo_proto = absl::make_unique<HloProto>();
+			*my_hlo_proto->mutable_hlo_module() = cloned_module->ToProto();
+			fstream output("results/result.pb", ios::out | ios::trunc | ios::binary);
+			my_hlo_proto->SerializeToOstream(&output);
+			std::cout<<"step "<<i<<" dump success"<<std::endl;
+
+
+		}
+
+
 		search_best_module->Cleanup();
 		TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(search_best_module.get()));
 		return std::move(search_best_module);
