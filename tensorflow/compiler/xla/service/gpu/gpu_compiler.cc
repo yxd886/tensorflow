@@ -640,7 +640,7 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 			TF_RETURN_IF_ERROR(PrepareHloModuleForIrEmitting(cloned_module.get()));
 			auto my_hlo_proto = absl::make_unique<HloProto>();
 			*my_hlo_proto->mutable_hlo_module() = cloned_module->ToProto();
-			fstream output("results/result.pb", ios::out | ios::trunc | ios::binary);
+			fstream output("results/step_result.pb", ios::out | ios::trunc | ios::binary);
 			my_hlo_proto->SerializeToOstream(&output);
 			std::cout<<"step "<<i<<" dump success"<<std::endl;
 
