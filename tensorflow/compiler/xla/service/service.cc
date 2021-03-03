@@ -849,6 +849,11 @@ StatusOr<std::unique_ptr<Executable>> Service::BuildExecutable(
 	int localRank = 0;
 	HloProto hlo_proto;
 	int size = 0;
+	int mpi_initalized=0;
+	MPI_Initialized(&mpi_initalized);
+	if(!mpi_initalized){
+		MPI_Init(nullptr, nullptr);
+	}
 	if(IsCoreModule()&&activate_flag){
 	 //if is not search, means it is normally activate already optimized module
 			//MPI_Init(nullptr, nullptr);
