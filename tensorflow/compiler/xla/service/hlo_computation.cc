@@ -1108,7 +1108,8 @@ std::unique_ptr<HloComputation> HloComputation::CloneWithReplacements(
     }
     instructions.push_back(std::move(new_instr));
   }
-  Builder builder(name() + "." + suffix);
+  //Builder builder(name() + "." + suffix);
+  Builder builder(name());
   for (auto& instr : instructions) {
     builder.AddInstruction(std::move(instr));
   }

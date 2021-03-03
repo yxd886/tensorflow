@@ -107,9 +107,9 @@ class HloModule {
   void set_name(string name) { name_ = std::move(name); }
 
   // Returns a deep copy of this module including all computations.
-  std::unique_ptr<HloModule> Clone(const string& suffix = "clone") const;
+  std::unique_ptr<HloModule> Clone(const string& suffix = "") const;
   std::unique_ptr<HloModule> Clone(const HloModuleConfig& config,
-                                   const string& suffix = "clone") const;
+                                   const string& suffix = "") const;
 
   // Performs a deep clone of the computation, by recursively cloning all
   // the called computations as well. If the clone context is specified, it

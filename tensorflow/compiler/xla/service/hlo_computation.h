@@ -382,7 +382,7 @@ class HloComputation {
   // If the clone context is specified, it will be populated with the cloned
   // object mappings, and its module() will be used to add new computations
   // into.
-  std::unique_ptr<HloComputation> Clone(const string& suffix = "clone",
+  std::unique_ptr<HloComputation> Clone(const string& suffix = "",
                                         HloCloneContext* context = nullptr);
 
   // Like Clone(), but if an instruction is present in replacement_map, we use
@@ -403,7 +403,7 @@ class HloComputation {
                           std::unique_ptr<HloInstruction>>
           replacements,
       absl::Span<const HloInstruction* const> extra_parameters = {},
-      HloCloneContext* context = nullptr, const string& suffix = "clone",
+      HloCloneContext* context = nullptr, const string& suffix = "",
       const HloInstruction* new_root = nullptr);
 
   // Convenience overloads for CloneWithReplacements.  You want to do
@@ -417,16 +417,16 @@ class HloComputation {
   //
   std::unique_ptr<HloComputation> CloneWithReplacementPairs(
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r1,
-      HloCloneContext* context = nullptr, const string& suffix = "clone");
+      HloCloneContext* context = nullptr, const string& suffix = "");
   std::unique_ptr<HloComputation> CloneWithReplacementPairs(
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r1,
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r2,
-      HloCloneContext* context = nullptr, const string& suffix = "clone");
+      HloCloneContext* context = nullptr, const string& suffix = "");
   std::unique_ptr<HloComputation> CloneWithReplacementPairs(
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r1,
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r2,
       std::pair<const HloInstruction*, std::unique_ptr<HloInstruction>> r3,
-      HloCloneContext* context = nullptr, const string& suffix = "clone");
+      HloCloneContext* context = nullptr, const string& suffix = "");
 
   // Returns true if the given instruction can be removed from the computation.
   // Parameter instructions cannot be removed without violating invariants of
