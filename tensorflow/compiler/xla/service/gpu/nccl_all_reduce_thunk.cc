@@ -310,7 +310,11 @@ class NcclClique {
 
 
     // Add MPI to support multi-host allreudce
-    MPI_Init(nullptr, nullptr);
+	int mpi_initalized=0;
+	MPI_Initialized(&mpi_initalized);
+	if(!mpi_initalized){
+		MPI_Init(nullptr, nullptr);
+	}
     int nProcs = 1, proc = 2;
     int localRank = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &nProcs);
