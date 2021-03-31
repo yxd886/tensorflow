@@ -552,6 +552,8 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
 				std::cout<<"  estimation:"<<estimate<<std::endl;
+				std::cout<<"  best estimation:"<<best_estimation_<<std::endl;
+
 
 				if (estimate<best_estimation_){
 					best_estimation_ = estimate;
