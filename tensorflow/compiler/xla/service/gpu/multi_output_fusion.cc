@@ -303,7 +303,7 @@ bool GpuMultiOutputFusion::DoMultiOutputFusion() {
     RecomputeReachability();
   }
 
-  std::cout<<"multi_output fusion counter:"<<counter<<std::endl;
+  if (counter!=0) std::cout<<"multi_output fusion counter:"<<counter<<std::endl;
 
   return changed;
 }
