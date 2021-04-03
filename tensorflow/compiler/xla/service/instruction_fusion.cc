@@ -791,6 +791,7 @@ StatusOr<bool> InstructionFusion::Run(HloModule* module) {
   reachability_.reset();
 
   VLOG(1) << "Fusion count: " << fuse_count;
+  std::cout<<"Instruction Fusion counter:"<<fuse_count<<std::endl;
 
   return changed;
 }

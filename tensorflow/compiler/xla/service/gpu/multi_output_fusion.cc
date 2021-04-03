@@ -232,6 +232,7 @@ bool GpuMultiOutputFusion::FuseSiblings(HloInstruction* parent) {
 
 bool GpuMultiOutputFusion::DoMultiOutputFusion() {
   bool changed = false;
+  int counter =0;
   RecomputeReachability();
   std::vector<HloInstruction*> defs_before_uses =
       computation_->MakeInstructionPostOrder();
@@ -250,6 +251,7 @@ bool GpuMultiOutputFusion::DoMultiOutputFusion() {
     // First, fuse the consumer ops of the current op, which are siblings.
     if (FuseSiblings(/*parent=*/producer)) {
       changed = true;
+      counter+=1;
     }
     // Second, perform producer-consumer multi-output fusion. This order will
     // ensure that all get-tuple-element ops inserted as a by-product of
@@ -268,6 +270,7 @@ bool GpuMultiOutputFusion::DoMultiOutputFusion() {
       continue;
     }
     changed = true;
+    counter+=1;
     if (consumer_for_fusion->opcode() == HloOpcode::kFusion) {
       VLOG(2) << "Fuse producer " << producer->name() << " into its consumer "
               << consumer_for_fusion->name();
@@ -299,6 +302,9 @@ bool GpuMultiOutputFusion::DoMultiOutputFusion() {
     }
     RecomputeReachability();
   }
+
+  std::cout<<"multi_output fusion counter:"<<counter<<std::endl;
+
   return changed;
 }
 

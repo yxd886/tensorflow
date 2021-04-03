@@ -175,6 +175,9 @@ Status FusionInstructionMerger::Run() {
           << " inefficient_fusion_emitter: "
           << num_fail_inefficient_fusion_emitter_
           << " fusion_too_large: " << num_fail_fusion_too_large_ << " }";
+
+  std::cout<<"FusionInstructionMerger counter:"<<total_merged_<<std::endl;
+
   return Status::OK();
 }
 
