@@ -30,7 +30,7 @@ limitations under the License.
 #include "tensorflow/core/platform/env.h"
 #include "tensorflow/core/platform/errors.h"
 #include "tensorflow/stream_executor/device_description.h"
-
+#include <mpi.h>
 namespace xla {
 
 ExecutionInput::~ExecutionInput() {
@@ -259,8 +259,14 @@ Status ExecuteWrapperAfterExecution(
 
   const auto& dump_path =
       executable->module_config().debug_options().xla_dump_to();
+
+	int proc = 2;
+	MPI_Comm_rank(MPI_COMM_WORLD, &proc);
+
+
+
   if (executable->module_config().debug_options().xla_hlo_profile() &&
-      state.profile_ptr != nullptr && !dump_path.empty()) {
+      state.profile_ptr != nullptr && !dump_path.empty()&&proc==0) {
     const std::string full_path =
         tensorflow::io::JoinPath(dump_path, "hlo_execution_profile_data_"+std::to_string(executable->module().unique_id()));
     TF_CHECK_OK(tensorflow::WriteStringToFile(

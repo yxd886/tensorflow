@@ -1156,6 +1156,7 @@ cc_library(
         ":maybe_owning_device_memory",
         ":shaped_buffer",
         ":stream_pool",
+        "@openmpi//:openmpi-lib",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/types:span",
