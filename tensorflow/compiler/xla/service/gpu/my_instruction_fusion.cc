@@ -23,6 +23,7 @@ limitations under the License.
 ==============================================================================*/
 
 #include "tensorflow/compiler/xla/service/gpu/my_instruction_fusion.h"
+#include "tensorflow/compiler/xla/service/my_all_reduce_combiner.h"
 
 #include "absl/container/flat_hash_set.h"
 #include "tensorflow/compiler/xla/service/fusion_node_indexing_evaluation.h"
@@ -485,6 +486,11 @@ StatusOr<bool> MyGpuInstructionFusion::Run(HloModule* module){
 
 
 			std::unique_ptr<HloModule> cloned_module = pop_module->Clone(pop_module->config(),"1");
+
+			auto my_all_reduce_combiner = absl::make_unique<xla::MyAllReduceCombiner>(0,0);
+
+			my_all_reduce_combiner->Run(cloned_module.get());
+
 			fusion_node_evaluations_.clear();
 
 			bool changed = false;

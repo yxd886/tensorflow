@@ -627,6 +627,7 @@ StatusOr<std::unique_ptr<HloModule>> GpuCompiler::RunHloPasses(
 
 
 		auto my_instruction_fusion = absl::make_unique<xla::gpu::MyGpuInstructionFusion>(true);
+		//auto my_all_reduce_combiner = absl::make_unique<xla::MyAllReduceCombiner>(0,0);
 
 		std::unique_ptr<HloModule> search_best_module = std::move(module);
 

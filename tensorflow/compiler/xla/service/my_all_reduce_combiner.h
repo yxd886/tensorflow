@@ -46,6 +46,7 @@ class MyAllReduceCombiner : public HloModulePass {
 
   // Combine all reduce ops up to this threshold (number of operands).
   int64 combine_threshold_count_;
+
 };
 
 }  // namespace xla
