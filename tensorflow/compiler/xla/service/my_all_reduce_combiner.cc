@@ -280,9 +280,18 @@ StatusOr<bool> MyAllReduceCombiner::Run(HloModule* module) {
   }
 
   bool changed = false;
-  for (HloComputation* computation : module->MakeNonfusionComputations()) {
+  auto computations = module->MakeNonfusionComputations();
+  while (!changed && computations.size()>0) {
+	int random_number= std::experimental::randint(0, int(computations.size())-1);
+	auto computation = computations.at(random_number);
     TF_ASSIGN_OR_RETURN(auto groups, CreateComputationGroups(computation));
-    for (auto group : groups) {
+    if (groups.size()==0){
+    	computations.erase(computations.begin()+random_number);
+    	continue;
+    }
+	int group_random_number= std::experimental::randint(0, int(groups.size())-1);
+	auto group = groups.at(group_random_number);
+    {
       // Recompute reachability after every combine group because we can't
       // maintain a cross group topolgical order to be able to rely on the
       // transitive dependencies to detect cycles.
@@ -412,36 +421,11 @@ StatusOr<bool> MyAllReduceCombiner::Run(HloModule* module) {
           }
         }
 
-        if (current_size_in_bytes + size_in_bytes >
-                combine_threshold_in_bytes_ ||
-            current_operand_count + 1 > combine_threshold_count_) {
-          VLOG(2) << "The instruction cannot be entered into the set due "
-                     "to the combined size being too large.";
-          // In this case we cannot include the instruction into the current set
-          // since then it would grow beyond the threshold. The set of
-          // instructions to carry forward will either be the current set or the
-          // instruction by itself, whichever is smaller, since that maximizes
-          // the chance of being able to combine with the next instruction.
-          //if (size_in_bytes > current_size_in_bytes) {
-          //  VLOG(2) << "Skipping as the instruction is larger than the set.";
-          //  continue;  // keep the current set
-          //}
-          VLOG(2)
-              << "Resetting the set as the set is larger than the instruction.";
-          VLOG(1) << "Done constructing 1 set. set size is "
-                  << current_size_in_bytes << " bytes and " << current_operand_count
-                  << " operands";
-          combine_sets.emplace_back();
-          current_size_in_bytes = 0;
-          current_operand_count = 0;
-        }
 
         VLOG(2) << "Adding instruction to set.";
         combine_sets.back().push_back(instructions);
         current_size_in_bytes += size_in_bytes;
         current_operand_count += 1;
-        TF_RET_CHECK(current_size_in_bytes-size_in_bytes <= combine_threshold_in_bytes_);
-        TF_RET_CHECK(current_operand_count <= combine_threshold_count_);
       }
       VLOG(1) << "Done constructing 1 set. set size is "
               << current_size_in_bytes << " bytes and " << current_operand_count
